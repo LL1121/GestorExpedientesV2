@@ -15,6 +15,15 @@ import {
   Trash2,
   Download,
   Plus,
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  FolderOpen,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Database,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +51,7 @@ import { ExpedienteService } from "@/services/expediente.service";
 import type { Expediente, EstadoExpediente, TipoExpediente, Prioridad, CreateExpedienteInput } from "@/types/expediente";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
-type ActiveView = "dashboard" | "expedientes" | "archivo" | "analiticas" | "configuracion";
+type ActiveView = "dashboard" | "archivo" | "analiticas" | "configuracion";
 
 export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -61,6 +70,8 @@ export default function Dashboard() {
     prioridad: "Media",
     fecha_inicio: new Date().toISOString().split('T')[0],
   });
+  const [configTab, setConfigTab] = useState<"general" | "database" | "notifications" | "about">("general");
+  const [darkMode, setDarkMode] = useState(false);
 
   // Cargar expedientes al montar el componente
   useEffect(() => {
@@ -184,7 +195,6 @@ export default function Dashboard() {
         <nav className="flex-1 p-3 space-y-1">
           {[
             { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" as ActiveView },
-            { icon: FileText, label: "Expedientes", view: "expedientes" as ActiveView },
             { icon: Archive, label: "Archivo", view: "archivo" as ActiveView },
             { icon: BarChart3, label: "Analíticas", view: "analiticas" as ActiveView },
             { icon: Settings, label: "Configuración", view: "configuracion" as ActiveView },
@@ -270,7 +280,7 @@ export default function Dashboard() {
         </div>
 
         {/* Data Table */}
-        <div className="flex-1 overflow-auto px-8 py-6 mt-4">
+        <div className="flex-1 overflow-auto px-8 py-6 mt-8">
           {activeView === "dashboard" && (
             loading ? (
               <div className="flex items-center justify-center h-full">
@@ -411,66 +421,482 @@ export default function Dashboard() {
             ))
           }
 
-          {/* Vista: Expedientes */}
-          {activeView === "expedientes" && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <FileText className="h-24 w-24 text-blue-500 mb-6" />
-              <h2 className="text-2xl font-bold text-slate-900 mb-3">Módulo de Expedientes</h2>
-              <p className="text-slate-600 text-center max-w-md mb-6">
-                Esta sección mostrará un listado completo de expedientes con opciones avanzadas de filtrado, búsqueda y gestión.
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md">
-                <p className="text-sm text-blue-900">
-                  <strong>Próximamente:</strong> Vista de expedientes con tabla detallada, búsqueda avanzada, exportación y más funciones.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Vista: Archivo */}
           {activeView === "archivo" && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <Archive className="h-24 w-24 text-amber-500 mb-6" />
-              <h2 className="text-2xl font-bold text-slate-900 mb-3">Archivo</h2>
-              <p className="text-slate-600 text-center max-w-md mb-6">
-                Gestiona expedientes archivados. Accede al histórico completo de expedientes finalizados.
-              </p>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md">
-                <p className="text-sm text-amber-900">
-                  <strong>Próximamente:</strong> Sistema de archivo con categorización automática, búsqueda histórica y recuperación de expedientes.
-                </p>
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Archivo</h2>
+                  <p className="text-sm text-slate-600 mt-1">Expedientes archivados y finalizados</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={loadExpedientes}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Actualizar
+                </Button>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg border border-slate-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-600">Total Archivados</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">
+                        {expedientes.filter(e => e.estado === "Archivado").length}
+                      </p>
+                    </div>
+                    <Archive className="h-8 w-8 text-amber-500" />
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg border border-slate-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-600">Finalizados</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">
+                        {expedientes.filter(e => e.estado === "Finalizado").length}
+                      </p>
+                    </div>
+                    <CheckCircle className="h-8 w-8 text-emerald-500" />
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg border border-slate-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-600">Este Mes</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">
+                        {expedientes.filter(e => {
+                          const updated = new Date(e.updated_at);
+                          const now = new Date();
+                          return updated.getMonth() === now.getMonth() && updated.getFullYear() === now.getFullYear() && (e.estado === "Archivado" || e.estado === "Finalizado");
+                        }).length}
+                      </p>
+                    </div>
+                    <Clock className="h-8 w-8 text-blue-500" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Archived Table */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                {expedientes.filter(e => e.estado === "Archivado" || e.estado === "Finalizado").length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <FolderOpen className="h-16 w-16 text-slate-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">No hay expedientes archivados</h3>
+                    <p className="text-sm text-slate-500">Los expedientes finalizados aparecerán aquí</p>
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50">
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">ID</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Asunto</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Tipo</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Área</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Fecha Archivo</th>
+                        <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {expedientes.filter(e => e.estado === "Archivado" || e.estado === "Finalizado").map((record) => (
+                        <tr key={record.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedRecord(record)}>
+                          <td className="py-4 px-4">
+                            <span className="text-sm font-mono text-slate-900">{record.numero}-{record.año}</span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-sm font-medium text-slate-900 line-clamp-1">{record.asunto}</span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <Badge variant="secondary" className="text-xs">{record.tipo}</Badge>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-sm text-slate-600">{record.area_responsable}</span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-sm text-slate-600">{formatDate(record.updated_at)}</span>
+                          </td>
+                          <td className="py-4 px-4 text-right">
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedRecord(record); }}>
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           )}
 
           {/* Vista: Analíticas */}
           {activeView === "analiticas" && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <BarChart3 className="h-24 w-24 text-emerald-500 mb-6" />
-              <h2 className="text-2xl font-bold text-slate-900 mb-3">Analíticas</h2>
-              <p className="text-slate-600 text-center max-w-md mb-6">
-                Visualiza estadísticas y métricas de rendimiento. Informes detallados sobre expedientes.
-              </p>
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 max-w-md">
-                <p className="text-sm text-emerald-900">
-                  <strong>Próximamente:</strong> Dashboards interactivos con gráficos, indicadores de rendimiento, reportes por área y período.
-                </p>
+            <div className="space-y-6">
+              {/* Header */}
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Analíticas y Reportes</h2>
+                <p className="text-sm text-slate-600 mt-1">Métricas y estadísticas del sistema</p>
+              </div>
+
+              {/* Main Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium opacity-90">Total Expedientes</p>
+                    <FileText className="h-5 w-5 opacity-80" />
+                  </div>
+                  <p className="text-3xl font-bold">{expedientes.length}</p>
+                  <p className="text-xs opacity-75 mt-2">Todos los registros</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg p-6 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium opacity-90">Finalizados</p>
+                    <CheckCircle className="h-5 w-5 opacity-80" />
+                  </div>
+                  <p className="text-3xl font-bold">{expedientes.filter(e => e.estado === "Finalizado").length}</p>
+                  <p className="text-xs opacity-75 mt-2">
+                    {expedientes.length > 0 ? Math.round((expedientes.filter(e => e.estado === "Finalizado").length / expedientes.length) * 100) : 0}% del total
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg p-6 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium opacity-90">En Proceso</p>
+                    <Clock className="h-5 w-5 opacity-80" />
+                  </div>
+                  <p className="text-3xl font-bold">{expedientes.filter(e => e.estado === "EnProceso").length}</p>
+                  <p className="text-xs opacity-75 mt-2">Activos actualmente</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-6 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium opacity-90">Observados</p>
+                    <AlertCircle className="h-5 w-5 opacity-80" />
+                  </div>
+                  <p className="text-3xl font-bold">{expedientes.filter(e => e.estado === "Observado").length}</p>
+                  <p className="text-xs opacity-75 mt-2">Requieren atención</p>
+                </div>
+              </div>
+
+              {/* Charts Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Estado Distribution */}
+                <div className="bg-white rounded-lg border border-slate-200 p-6">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Distribución por Estado</h3>
+                  <div className="space-y-3">
+                    {[
+                      { estado: "Iniciado", color: "bg-blue-500", count: expedientes.filter(e => e.estado === "Iniciado").length },
+                      { estado: "En Proceso", color: "bg-amber-500", count: expedientes.filter(e => e.estado === "EnProceso").length },
+                      { estado: "En Revisión", color: "bg-purple-500", count: expedientes.filter(e => e.estado === "EnRevision").length },
+                      { estado: "Observado", color: "bg-red-500", count: expedientes.filter(e => e.estado === "Observado").length },
+                      { estado: "Finalizado", color: "bg-emerald-500", count: expedientes.filter(e => e.estado === "Finalizado").length },
+                      { estado: "Archivado", color: "bg-slate-400", count: expedientes.filter(e => e.estado === "Archivado").length },
+                    ].map((item) => (
+                      <div key={item.estado} className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-slate-700">{item.estado}</span>
+                            <span className="text-sm font-semibold text-slate-900">{item.count}</span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-2">
+                            <div
+                              className={`${item.color} h-2 rounded-full transition-all`}
+                              style={{ width: `${expedientes.length > 0 ? (item.count / expedientes.length) * 100 : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tipo Distribution */}
+                <div className="bg-white rounded-lg border border-slate-200 p-6">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Distribución por Tipo</h3>
+                  <div className="space-y-4">
+                    {[
+                      { tipo: "InfoGov", label: "Info Gubernamental", count: expedientes.filter(e => e.tipo === "InfoGov").length },
+                      { tipo: "Gde", label: "GDE", count: expedientes.filter(e => e.tipo === "Gde").length },
+                      { tipo: "Interno", label: "Interno", count: expedientes.filter(e => e.tipo === "Interno").length },
+                      { tipo: "Otro", label: "Otro", count: expedientes.filter(e => e.tipo === "Otro").length },
+                    ].map((item) => (
+                      <div key={item.tipo} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-slate-900">{item.count}</span>
+                          <span className="text-xs text-slate-500">
+                            ({expedientes.length > 0 ? Math.round((item.count / expedientes.length) * 100) : 0}%)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance by Area */}
+              <div className="bg-white rounded-lg border border-slate-200 p-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Rendimiento por Área</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Área</th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Total</th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">En Proceso</th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Finalizados</th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Eficiencia</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {Array.from(new Set(expedientes.map(e => e.area_responsable))).map((area) => {
+                        const areaExp = expedientes.filter(e => e.area_responsable === area);
+                        const finalizados = areaExp.filter(e => e.estado === "Finalizado").length;
+                        const eficiencia = areaExp.length > 0 ? Math.round((finalizados / areaExp.length) * 100) : 0;
+                        return (
+                          <tr key={area} className="hover:bg-slate-50">
+                            <td className="py-3 px-4 text-sm font-medium text-slate-900">{area}</td>
+                            <td className="py-3 px-4 text-sm text-center text-slate-600">{areaExp.length}</td>
+                            <td className="py-3 px-4 text-sm text-center text-slate-600">
+                              {areaExp.filter(e => e.estado === "EnProceso").length}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-center text-slate-600">{finalizados}</td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="inline-flex items-center gap-1">
+                                <span className={`text-sm font-semibold ${eficiencia >= 70 ? 'text-emerald-600' : eficiencia >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
+                                  {eficiencia}%
+                                </span>
+                                {eficiencia >= 70 ? <TrendingUp className="h-4 w-4 text-emerald-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
 
           {/* Vista: Configuración */}
           {activeView === "configuracion" && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <Settings className="h-24 w-24 text-purple-500 mb-6" />
-              <h2 className="text-2xl font-bold text-slate-900 mb-3">Configuración</h2>
-              <p className="text-slate-600 text-center max-w-md mb-6">
-                Configura preferencias del sistema, usuarios, notificaciones y sincronización.
-              </p>
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 max-w-md">
-                <p className="text-sm text-purple-900">
-                  <strong>Próximamente:</strong> Panel de configuración completo con gestión de usuarios, preferencias de sincronización y personalización.
-                </p>
+            <div className="space-y-6">
+              {/* Header */}
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Configuración</h2>
+                <p className="text-sm text-slate-600 mt-1">Preferencias y ajustes del sistema</p>
+              </div>
+
+              {/* Tabs */}
+              <div className="border-b border-slate-200">
+                <div className="flex gap-4">
+                  {[
+                    { id: "general", label: "General", icon: Settings },
+                    { id: "database", label: "Base de Datos", icon: Database },
+                    { id: "notifications", label: "Notificaciones", icon: Bell },
+                    { id: "about", label: "Acerca de", icon: FileText },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setConfigTab(tab.id as any)}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+                        configTab === tab.id
+                          ? "border-blue-500 text-blue-600"
+                          : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
+                      )}
+                    >
+                      <tab.icon className="h-4 w-4" />
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tab Content */}
+              <div className="bg-white rounded-lg border border-slate-200 p-6">
+                {/* General Tab */}
+                {configTab === "general" && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Apariencia</h3>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-slate-900">Modo Oscuro</p>
+                            <p className="text-sm text-slate-600">Cambiar entre tema claro y oscuro</p>
+                          </div>
+                          <button
+                            onClick={() => setDarkMode(!darkMode)}
+                            className={cn(
+                              "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                              darkMode ? "bg-blue-600" : "bg-slate-300"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                                darkMode ? "translate-x-6" : "translate-x-1"
+                              )}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Idioma y Región</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Idioma</Label>
+                          <Select defaultValue="es">
+                            <SelectTrigger className="mt-2">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="es">Español</SelectItem>
+                              <SelectItem value="en">English</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Formato de Fecha</Label>
+                          <Select defaultValue="dd/mm/yyyy">
+                            <SelectTrigger className="mt-2">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="dd/mm/yyyy">DD/MM/YYYY</SelectItem>
+                              <SelectItem value="mm/dd/yyyy">MM/DD/YYYY</SelectItem>
+                              <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Database Tab */}
+                {configTab === "database" && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Sincronización</h3>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-slate-900">Sincronización Automática</p>
+                            <p className="text-sm text-slate-600">Sincronizar con PostgreSQL cuando esté disponible</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-emerald-600">Activo</span>
+                            <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
+                          </div>
+                        </div>
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-900 mb-2">
+                            <strong>Base de Datos Local:</strong> SQLite
+                          </p>
+                          <p className="text-xs text-blue-700">
+                            Ubicación: ./data/gestor_irrigacion.db
+                          </p>
+                        </div>
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                          <p className="text-sm text-slate-900 mb-2">
+                            <strong>Base de Datos Remota:</strong> PostgreSQL (Opcional)
+                          </p>
+                          <p className="text-xs text-slate-600">
+                            Estado: {isOnline ? "Conectado" : "Desconectado"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Respaldo</h3>
+                      <div className="space-y-3">
+                        <Button variant="outline" className="w-full justify-start">
+                          <Download className="h-4 w-4 mr-2" />
+                          Exportar Base de Datos
+                        </Button>
+                        <Button variant="outline" className="w-full justify-start">
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Restaurar Respaldo
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notifications Tab */}
+                {configTab === "notifications" && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Preferencias de Notificaciones</h3>
+                      <div className="space-y-3">
+                        {[
+                          { label: "Nuevos expedientes", description: "Notificar cuando se cree un nuevo expediente" },
+                          { label: "Cambios de estado", description: "Alertar cuando un expediente cambie de estado" },
+                          { label: "Expedientes observados", description: "Avisar cuando un expediente sea marcado como observado" },
+                          { label: "Expedientes por vencer", description: "Recordar expedientes próximos a su fecha de vencimiento" },
+                        ].map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                            <div>
+                              <p className="font-medium text-slate-900">{item.label}</p>
+                              <p className="text-sm text-slate-600">{item.description}</p>
+                            </div>
+                            <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-blue-600">
+                              <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-6" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* About Tab */}
+                {configTab === "about" && (
+                  <div className="space-y-6">
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-blue-500 rounded-xl flex items-center justify-center mx-auto mb-4">
+                        <FileText className="h-8 w-8 text-white" />
+                      </div>
+                      <h3 className="text-2xl font-bold text-slate-900 mb-2">Gestor de Irrigación</h3>
+                      <p className="text-slate-600 mb-4">Sistema de Gestión de Expedientes</p>
+                      <Badge variant="secondary">Versión 0.1.0</Badge>
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-6 space-y-4">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-slate-600">Frontend</p>
+                          <p className="font-medium text-slate-900">React 19.1 + TypeScript</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-600">Backend</p>
+                          <p className="font-medium text-slate-900">Rust + Tauri 2.x</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-600">Base de Datos</p>
+                          <p className="font-medium text-slate-900">SQLite + PostgreSQL</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-600">Framework UI</p>
+                          <p className="font-medium text-slate-900">Tailwind CSS + shadcn/ui</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-6">
+                      <p className="text-xs text-slate-500 text-center">
+                        © 2026 Jefatura de Zona de Riego. Todos los derechos reservados.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
