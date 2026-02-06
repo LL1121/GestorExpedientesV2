@@ -271,27 +271,28 @@ export default function Dashboard() {
 
         {/* Data Table */}
         <div className="flex-1 overflow-auto px-8 py-6 mt-4">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-slate-500">Cargando expedientes...</p>
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center h-full">
-              <p className="text-red-500 mb-4">Error: {error}</p>
-              <Button onClick={loadExpedientes}>Reintentar</Button>
-            </div>
-          ) : filteredRecords.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <FileText className="h-16 w-16 text-slate-300 mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No se encontraron expedientes</h3>
-              <p className="text-sm text-slate-500 max-w-md">
-                No hay expedientes que coincidan con tu búsqueda o filtro. Intenta ajustar los criterios.
-              </p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-              <table className="w-full">
-                <thead>
+          {activeView === "dashboard" && (
+            loading ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-slate-500">Cargando expedientes...</p>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center h-full">
+                <p className="text-red-500 mb-4">Error: {error}</p>
+                <Button onClick={loadExpedientes}>Reintentar</Button>
+              </div>
+            ) : filteredRecords.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <FileText className="h-16 w-16 text-slate-300 mb-4" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No se encontraron expedientes</h3>
+                <p className="text-sm text-slate-500 max-w-md">
+                  No hay expedientes que coincidan con tu búsqueda o filtro. Intenta ajustar los criterios.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                <table className="w-full">
+                  <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Estado
@@ -407,7 +408,8 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
-          )}
+            ))
+          }
 
           {/* Vista: Expedientes */}
           {activeView === "expedientes" && (
@@ -477,7 +479,7 @@ export default function Dashboard() {
 
       {/* Dialog: Añadir Expediente */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nuevo Expediente</DialogTitle>
             <DialogDescription>
@@ -606,7 +608,7 @@ export default function Dashboard() {
 
       {/* Dialog: Detalles del Expediente */}
       <Dialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Expediente {selectedRecord?.numero}-{selectedRecord?.año}
