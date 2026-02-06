@@ -75,6 +75,30 @@ pub fn run() {
                     commands::update_expediente,
                     commands::delete_expediente,
                     commands::search_expedientes,
+                    // Commands de Vehículos
+                    commands::get_all_vehiculos,
+                    commands::get_vehiculo,
+                    commands::create_vehiculo,
+                    commands::update_kilometraje,
+                    commands::delete_vehiculo,
+                    // Commands de Tickets/Combustible
+                    commands::get_all_tickets,
+                    commands::get_tickets_by_vehiculo,
+                    commands::create_ticket,
+                    commands::calcular_rendimiento,
+                    commands::delete_ticket,
+                    // Commands de Agentes/Personal
+                    commands::get_all_agentes,
+                    commands::get_agente,
+                    commands::create_agente,
+                    commands::update_agente,
+                    commands::delete_agente,
+                    commands::get_estadisticas_licencias,
+                    // Commands de Exportación Excel
+                    commands::exportar_excel_pendientes,
+                    commands::exportar_excel_todos,
+                    commands::exportar_excel_movilidades,
+                    commands::exportar_excel_personal,
                 ])
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application");

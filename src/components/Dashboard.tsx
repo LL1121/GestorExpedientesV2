@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Search,
   LayoutDashboard,
@@ -22,8 +23,11 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Database,
   Bell,
+  FileSpreadsheet,
+  Truck,
+  Users,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,9 +53,11 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ExpedienteService } from "@/services/expediente.service";
 import type { Expediente, EstadoExpediente, TipoExpediente, Prioridad, CreateExpedienteInput } from "@/types/expediente";
+import Movilidades from "@/components/Movilidades";
+import Personal from "@/components/Personal";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
-type ActiveView = "dashboard" | "archivo" | "analiticas" | "configuracion";
+type ActiveView = "dashboard" | "archivo" | "analiticas" | "configuracion" | "movilidades" | "personal";
 
 export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -70,13 +76,27 @@ export default function Dashboard() {
     prioridad: "Media",
     fecha_inicio: new Date().toISOString().split('T')[0],
   });
-  const [configTab, setConfigTab] = useState<"general" | "database" | "notifications" | "about">("general");
-  const [darkMode, setDarkMode] = useState(false);
+  const [configTab, setConfigTab] = useState<"general" | "notifications" | "about">("general");
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Cargar expedientes al montar el componente
   useEffect(() => {
     loadExpedientes();
   }, []);
+
+  // Persistir modo oscuro
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
 
   const loadExpedientes = async () => {
     try {
@@ -172,16 +192,16 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
       {/* Sidebar */}
       <aside
         className={cn(
-          "bg-white border-r border-slate-200 transition-all duration-300 flex flex-col",
+          "bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-all duration-300 flex flex-col",
           sidebarCollapsed ? "w-16" : "w-64"
         )}
       >
-        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
-          {!sidebarCollapsed && <h1 className="font-semibold text-slate-900 text-lg">Irrigación Records</h1>}
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-700">
+          {!sidebarCollapsed && <h1 className="font-semibold text-slate-900 dark:text-white text-lg">Irrigación Records</h1>}
           <Button
             variant="ghost"
             size="icon"
@@ -195,6 +215,8 @@ export default function Dashboard() {
         <nav className="flex-1 p-3 space-y-1">
           {[
             { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" as ActiveView },
+            { icon: Truck, label: "Movilidades", view: "movilidades" as ActiveView },
+            { icon: Users, label: "Personal", view: "personal" as ActiveView },
             { icon: Archive, label: "Archivo", view: "archivo" as ActiveView },
             { icon: BarChart3, label: "Analíticas", view: "analiticas" as ActiveView },
             { icon: Settings, label: "Configuración", view: "configuracion" as ActiveView },
@@ -204,7 +226,7 @@ export default function Dashboard() {
               onClick={() => handleViewChange(item.view)}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium",
-                activeView === item.view ? "bg-blue-500/10 text-blue-600" : "text-slate-600 hover:bg-slate-100"
+                activeView === item.view ? "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               )}
             >
               <item.icon className="h-5 w-5 shrink-0" />
@@ -233,51 +255,93 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header with Search */}
-        <header className="h-32 bg-white border-b border-slate-200 flex flex-col justify-center px-8">
-          <div className="max-w-2xl mx-auto w-full">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-              <Input
-                type="text"
-                placeholder="Buscar expedientes... (⌘K)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 pl-12 pr-4 text-base border-slate-200 focus-visible:ring-blue-500 shadow-sm"
-              />
+        {/* Header with Search - Solo visible en Dashboard */}
+        {activeView === "dashboard" && (
+          <header className="h-32 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex flex-col justify-center px-8">
+            <div className="max-w-2xl mx-auto w-full">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder="Buscar expedientes... (⌘K)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 pl-12 pr-4 text-base border-slate-200 focus-visible:ring-blue-500 shadow-sm"
+                />
+              </div>
+            </div>
+          </header>
+        )}
+
+        {/* Filter Bar - Solo visible en Dashboard */}
+        {activeView === "dashboard" && (
+          <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 py-4 mb-6">
+            <div className="flex items-center gap-3">
+              {/* Filtros con scroll */}
+              <div className="flex items-center gap-3 overflow-x-auto pr-6 flex-1" style={{ scrollbarWidth: 'thin' }}>
+                <Filter className="h-4 w-4 text-slate-500 shrink-0" />
+                {filterOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setActiveFilter(option.value)}
+                    className={cn(
+                      "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+                      activeFilter === option.value
+                        ? "bg-blue-500 text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    )}
+                  >
+                    {option.label}
+                    <span className="ml-2 text-xs opacity-70">({option.count})</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Menú Desplegable de Acciones */}
+              <DropdownMenu onOpenChange={setIsDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-9 w-9 rounded-full hover:bg-blue-50 transition-all"
+                  >
+                    <ChevronDown className={cn(
+                      "h-5 w-5 text-blue-600 transition-all duration-300",
+                      isDropdownOpen && "rotate-180"
+                    )} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  align="end" 
+                  className="w-56 bg-white animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
+                >
+                  <DropdownMenuItem
+                    onClick={() => setIsAddDialogOpen(true)}
+                    className="cursor-pointer py-3 focus:bg-blue-50"
+                  >
+                    <Plus className="h-4 w-4 mr-3 text-blue-600" />
+                    <span className="font-medium">Añadir Expediente</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      try {
+                        await invoke("exportar_excel_pendientes");
+                        alert("Informe exportado exitosamente");
+                      } catch (error) {
+                        alert("Error al exportar: " + error);
+                      }
+                    }}
+                    className="cursor-pointer py-3 focus:bg-emerald-50"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-3 text-emerald-600" />
+                    <span className="font-medium">Exportar Informe Automático</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-        </header>
-
-        {/* Filter Bar */}
-        <div className="bg-white border-b border-slate-200 px-8 py-4">
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <Filter className="h-4 w-4 text-slate-500 shrink-0" />
-            {filterOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setActiveFilter(option.value)}
-                className={cn(
-                  "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
-                  activeFilter === option.value
-                    ? "bg-blue-500 text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                )}
-              >
-                {option.label}
-                <span className="ml-2 text-xs opacity-70">({option.count})</span>
-              </button>
-            ))}
-            <Button
-              onClick={() => setIsAddDialogOpen(true)}
-              className="ml-auto bg-blue-600 hover:bg-blue-700 text-white"
-              size="sm"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Añadir Expediente
-            </Button>
-          </div>
-        </div>
+        )}
 
         {/* Data Table */}
         <div className="flex-1 overflow-auto px-8 py-6 mt-8">
@@ -529,6 +593,12 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Vista: Movilidades */}
+          {activeView === "movilidades" && <Movilidades />}
+
+          {/* Vista: Personal */}
+          {activeView === "personal" && <Personal />}
+
           {/* Vista: Analíticas */}
           {activeView === "analiticas" && (
             <div className="space-y-6">
@@ -694,7 +764,6 @@ export default function Dashboard() {
                 <div className="flex gap-4">
                   {[
                     { id: "general", label: "General", icon: Settings },
-                    { id: "database", label: "Base de Datos", icon: Database },
                     { id: "notifications", label: "Notificaciones", icon: Bell },
                     { id: "about", label: "Acerca de", icon: FileText },
                   ].map((tab) => (
@@ -755,9 +824,9 @@ export default function Dashboard() {
                             <SelectTrigger className="mt-2">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="es">Español</SelectItem>
-                              <SelectItem value="en">English</SelectItem>
+                            <SelectContent className="bg-white">
+                              <SelectItem value="es" className="cursor-pointer hover:bg-slate-100">Español</SelectItem>
+                              <SelectItem value="en" className="cursor-pointer hover:bg-slate-100">English</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -767,10 +836,10 @@ export default function Dashboard() {
                             <SelectTrigger className="mt-2">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="dd/mm/yyyy">DD/MM/YYYY</SelectItem>
-                              <SelectItem value="mm/dd/yyyy">MM/DD/YYYY</SelectItem>
-                              <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
+                            <SelectContent className="bg-white">
+                              <SelectItem value="dd/mm/yyyy" className="cursor-pointer hover:bg-slate-100">DD/MM/YYYY</SelectItem>
+                              <SelectItem value="mm/dd/yyyy" className="cursor-pointer hover:bg-slate-100">MM/DD/YYYY</SelectItem>
+                              <SelectItem value="yyyy-mm-dd" className="cursor-pointer hover:bg-slate-100">YYYY-MM-DD</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -779,58 +848,6 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Database Tab */}
-                {configTab === "database" && (
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Sincronización</h3>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                          <div>
-                            <p className="font-medium text-slate-900">Sincronización Automática</p>
-                            <p className="text-sm text-slate-600">Sincronizar con PostgreSQL cuando esté disponible</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-emerald-600">Activo</span>
-                            <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
-                          </div>
-                        </div>
-                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-sm text-blue-900 mb-2">
-                            <strong>Base de Datos Local:</strong> SQLite
-                          </p>
-                          <p className="text-xs text-blue-700">
-                            Ubicación: ./data/gestor_irrigacion.db
-                          </p>
-                        </div>
-                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                          <p className="text-sm text-slate-900 mb-2">
-                            <strong>Base de Datos Remota:</strong> PostgreSQL (Opcional)
-                          </p>
-                          <p className="text-xs text-slate-600">
-                            Estado: {isOnline ? "Conectado" : "Desconectado"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Respaldo</h3>
-                      <div className="space-y-3">
-                        <Button variant="outline" className="w-full justify-start">
-                          <Download className="h-4 w-4 mr-2" />
-                          Exportar Base de Datos
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start">
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Restaurar Respaldo
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Notifications Tab */}
                 {configTab === "notifications" && (
                   <div className="space-y-6">
                     <div>
@@ -905,7 +922,7 @@ export default function Dashboard() {
 
       {/* Dialog: Añadir Expediente */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Nuevo Expediente</DialogTitle>
             <DialogDescription>
@@ -948,11 +965,11 @@ export default function Dashboard() {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="InfoGov">InfoGov</SelectItem>
-                    <SelectItem value="Gde">GDE</SelectItem>
-                    <SelectItem value="Interno">Interno</SelectItem>
-                    <SelectItem value="Otro">Otro</SelectItem>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="InfoGov" className="cursor-pointer hover:bg-slate-100">InfoGov</SelectItem>
+                    <SelectItem value="Gde" className="cursor-pointer hover:bg-slate-100">GDE</SelectItem>
+                    <SelectItem value="Interno" className="cursor-pointer hover:bg-slate-100">Interno</SelectItem>
+                    <SelectItem value="Otro" className="cursor-pointer hover:bg-slate-100">Otro</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -965,11 +982,11 @@ export default function Dashboard() {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Baja">Baja</SelectItem>
-                    <SelectItem value="Media">Media</SelectItem>
-                    <SelectItem value="Alta">Alta</SelectItem>
-                    <SelectItem value="Urgente">Urgente</SelectItem>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="Baja" className="cursor-pointer hover:bg-slate-100">Baja</SelectItem>
+                    <SelectItem value="Media" className="cursor-pointer hover:bg-slate-100">Media</SelectItem>
+                    <SelectItem value="Alta" className="cursor-pointer hover:bg-slate-100">Alta</SelectItem>
+                    <SelectItem value="Urgente" className="cursor-pointer hover:bg-slate-100">Urgente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1034,7 +1051,7 @@ export default function Dashboard() {
 
       {/* Dialog: Detalles del Expediente */}
       <Dialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>
               Expediente {selectedRecord?.numero}-{selectedRecord?.año}
