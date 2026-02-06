@@ -102,9 +102,6 @@ export default function Dashboard() {
 
   const handleViewChange = (view: ActiveView) => {
     setActiveView(view);
-    if (view !== "expedientes" && view !== "dashboard") {
-      alert(`Sección "${view}" - Próximamente disponible`);
-    }
   };
 
   const filterOptions: { label: string; value: FilterType; count: number }[] = [
@@ -273,7 +270,7 @@ export default function Dashboard() {
         </div>
 
         {/* Data Table */}
-        <div className="flex-1 overflow-auto px-8 py-6">
+        <div className="flex-1 overflow-auto px-8 py-6 mt-4">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-slate-500">Cargando expedientes...</p>
@@ -411,12 +408,76 @@ export default function Dashboard() {
               </table>
             </div>
           )}
+
+          {/* Vista: Expedientes */}
+          {activeView === "expedientes" && (
+            <div className="flex flex-col items-center justify-center h-full">
+              <FileText className="h-24 w-24 text-blue-500 mb-6" />
+              <h2 className="text-2xl font-bold text-slate-900 mb-3">Módulo de Expedientes</h2>
+              <p className="text-slate-600 text-center max-w-md mb-6">
+                Esta sección mostrará un listado completo de expedientes con opciones avanzadas de filtrado, búsqueda y gestión.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md">
+                <p className="text-sm text-blue-900">
+                  <strong>Próximamente:</strong> Vista de expedientes con tabla detallada, búsqueda avanzada, exportación y más funciones.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Vista: Archivo */}
+          {activeView === "archivo" && (
+            <div className="flex flex-col items-center justify-center h-full">
+              <Archive className="h-24 w-24 text-amber-500 mb-6" />
+              <h2 className="text-2xl font-bold text-slate-900 mb-3">Archivo</h2>
+              <p className="text-slate-600 text-center max-w-md mb-6">
+                Gestiona expedientes archivados. Accede al histórico completo de expedientes finalizados.
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md">
+                <p className="text-sm text-amber-900">
+                  <strong>Próximamente:</strong> Sistema de archivo con categorización automática, búsqueda histórica y recuperación de expedientes.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Vista: Analíticas */}
+          {activeView === "analiticas" && (
+            <div className="flex flex-col items-center justify-center h-full">
+              <BarChart3 className="h-24 w-24 text-emerald-500 mb-6" />
+              <h2 className="text-2xl font-bold text-slate-900 mb-3">Analíticas</h2>
+              <p className="text-slate-600 text-center max-w-md mb-6">
+                Visualiza estadísticas y métricas de rendimiento. Informes detallados sobre expedientes.
+              </p>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 max-w-md">
+                <p className="text-sm text-emerald-900">
+                  <strong>Próximamente:</strong> Dashboards interactivos con gráficos, indicadores de rendimiento, reportes por área y período.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Vista: Configuración */}
+          {activeView === "configuracion" && (
+            <div className="flex flex-col items-center justify-center h-full">
+              <Settings className="h-24 w-24 text-purple-500 mb-6" />
+              <h2 className="text-2xl font-bold text-slate-900 mb-3">Configuración</h2>
+              <p className="text-slate-600 text-center max-w-md mb-6">
+                Configura preferencias del sistema, usuarios, notificaciones y sincronización.
+              </p>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 max-w-md">
+                <p className="text-sm text-purple-900">
+                  <strong>Próximamente:</strong> Panel de configuración completo con gestión de usuarios, preferencias de sincronización y personalización.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Dialog: Añadir Expediente */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>Nuevo Expediente</DialogTitle>
             <DialogDescription>
@@ -545,7 +606,7 @@ export default function Dashboard() {
 
       {/* Dialog: Detalles del Expediente */}
       <Dialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>
               Expediente {selectedRecord?.numero}-{selectedRecord?.año}
