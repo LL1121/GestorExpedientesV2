@@ -11,12 +11,9 @@ import {
   Wifi,
   WifiOff,
   Filter,
-  Calendar,
-  User,
   Edit,
   Trash2,
   Download,
-  Clock,
   Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,6 +42,7 @@ import { ExpedienteService } from "@/services/expediente.service";
 import type { Expediente, EstadoExpediente, TipoExpediente, Prioridad, CreateExpedienteInput } from "@/types/expediente";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
+type ActiveView = "dashboard" | "expedientes" | "archivo" | "analiticas" | "configuracion";
 
 export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -57,6 +55,12 @@ export default function Dashboard() {
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<ActiveView>("dashboard");
+  const [newExpediente, setNewExpediente] = useState<Partial<CreateExpedienteInput> & { estado?: EstadoExpediente }>({
+    tipo: "InfoGov",
+    prioridad: "Media",
+    fecha_inicio: new Date().toISOString().split('T')[0],
+  });
 
   // Cargar expedientes al montar el componente
   useEffect(() => {
@@ -73,6 +77,33 @@ export default function Dashboard() {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateExpediente = async () => {
+    try {
+      if (!newExpediente.numero || !newExpediente.año || !newExpediente.asunto || !newExpediente.area_responsable) {
+        alert("Por favor completa los campos requeridos");
+        return;
+      }
+
+      await ExpedienteService.create(newExpediente as CreateExpedienteInput);
+      setIsAddDialogOpen(false);
+      setNewExpediente({
+        tipo: "InfoGov",
+        prioridad: "Media",
+        fecha_inicio: new Date().toISOString().split('T')[0],
+      });
+      await loadExpedientes();
+    } catch (err) {
+      alert("Error al crear expediente: " + (err instanceof Error ? err.message : "Error desconocido"));
+    }
+  };
+
+  const handleViewChange = (view: ActiveView) => {
+    setActiveView(view);
+    if (view !== "expedientes" && view !== "dashboard") {
+      alert(`Sección "${view}" - Próximamente disponible`);
     }
   };
 
@@ -155,17 +186,18 @@ export default function Dashboard() {
 
         <nav className="flex-1 p-3 space-y-1">
           {[
-            { icon: LayoutDashboard, label: "Dashboard", active: true },
-            { icon: FileText, label: "Expedientes", active: false },
-            { icon: Archive, label: "Archivo", active: false },
-            { icon: BarChart3, label: "Analíticas", active: false },
-            { icon: Settings, label: "Configuración", active: false },
+            { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" as ActiveView },
+            { icon: FileText, label: "Expedientes", view: "expedientes" as ActiveView },
+            { icon: Archive, label: "Archivo", view: "archivo" as ActiveView },
+            { icon: BarChart3, label: "Analíticas", view: "analiticas" as ActiveView },
+            { icon: Settings, label: "Configuración", view: "configuracion" as ActiveView },
           ].map((item, idx) => (
             <button
               key={idx}
+              onClick={() => handleViewChange(item.view)}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium",
-                item.active ? "bg-blue-500/10 text-blue-600" : "text-slate-600 hover:bg-slate-100"
+                activeView === item.view ? "bg-blue-500/10 text-blue-600" : "text-slate-600 hover:bg-slate-100"
               )}
             >
               <item.icon className="h-5 w-5 shrink-0" />
@@ -334,11 +366,21 @@ export default function Dashboard() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                alert("Edición - Próximamente disponible");
+                              }}
+                            >
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                alert("Descarga - Próximamente disponible");
+                              }}
+                            >
                               <Download className="h-4 w-4 mr-2" />
                               Descargar
                             </DropdownMenuItem>
@@ -372,7 +414,213 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* El código continúa... (Dialogs) */}
+      {/* Dialog: Añadir Expediente */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nuevo Expediente</DialogTitle>
+            <DialogDescription>
+              Completa los datos del nuevo expediente. Los campos con * son obligatorios.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            {/* Fila 1: Número y Año */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="numero">Número *</Label>
+                <Input
+                  id="numero"
+                  placeholder="Ej: 0001"
+                  value={newExpediente.numero || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, numero: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="año">Año *</Label>
+                <Input
+                  id="año"
+                  type="number"
+                  placeholder="2026"
+                  value={newExpediente.año || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, año: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            {/* Fila 2: Tipo y Prioridad */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tipo">Tipo *</Label>
+                <Select
+                  value={newExpediente.tipo}
+                  onValueChange={(value) => setNewExpediente({ ...newExpediente, tipo: value as TipoExpediente })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="InfoGov">InfoGov</SelectItem>
+                    <SelectItem value="Gde">GDE</SelectItem>
+                    <SelectItem value="Interno">Interno</SelectItem>
+                    <SelectItem value="Otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prioridad">Prioridad</Label>
+                <Select
+                  value={newExpediente.prioridad}
+                  onValueChange={(value) => setNewExpediente({ ...newExpediente, prioridad: value as Prioridad })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Baja">Baja</SelectItem>
+                    <SelectItem value="Media">Media</SelectItem>
+                    <SelectItem value="Alta">Alta</SelectItem>
+                    <SelectItem value="Urgente">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Asunto */}
+            <div className="space-y-2">
+              <Label htmlFor="asunto">Asunto *</Label>
+              <Input
+                id="asunto"
+                placeholder="Descripción breve del expediente"
+                value={newExpediente.asunto || ""}
+                onChange={(e) => setNewExpediente({ ...newExpediente, asunto: e.target.value })}
+              />
+            </div>
+
+            {/* Descripción */}
+            <div className="space-y-2">
+              <Label htmlFor="descripcion">Descripción</Label>
+              <Textarea
+                id="descripcion"
+                placeholder="Detalles adicionales del expediente..."
+                rows={3}
+                value={newExpediente.descripcion || ""}
+                onChange={(e) => setNewExpediente({ ...newExpediente, descripcion: e.target.value })}
+              />
+            </div>
+
+            {/* Área Responsable y Fecha de Inicio */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="area">Área Responsable *</Label>
+                <Input
+                  id="area"
+                  placeholder="Ej: Administración"
+                  value={newExpediente.area_responsable || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, area_responsable: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fecha_inicio">Fecha de Inicio *</Label>
+                <Input
+                  id="fecha_inicio"
+                  type="date"
+                  value={newExpediente.fecha_inicio || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, fecha_inicio: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateExpediente} className="bg-blue-600 hover:bg-blue-700">
+              Crear Expediente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Detalles del Expediente */}
+      <Dialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Expediente {selectedRecord?.numero}-{selectedRecord?.año}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedRecord?.asunto}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedRecord && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Estado</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className={cn("h-2.5 w-2.5 rounded-full", getStatusColor(selectedRecord.estado))} />
+                    <span className="text-sm font-medium">{getStatusLabel(selectedRecord.estado)}</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Tipo</p>
+                  <p className="text-sm mt-1">{selectedRecord.tipo}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Prioridad</p>
+                  <p className="text-sm mt-1">{selectedRecord.prioridad}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Área Responsable</p>
+                  <p className="text-sm mt-1">{selectedRecord.area_responsable}</p>
+                </div>
+              </div>
+
+              {selectedRecord.descripcion && (
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Descripción</p>
+                  <p className="text-sm mt-1 text-slate-700">{selectedRecord.descripcion}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Fecha de Inicio</p>
+                  <p className="text-sm mt-1">
+                    {selectedRecord.fecha_inicio ? formatDate(selectedRecord.fecha_inicio) : "No especificada"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Fecha de Vencimiento</p>
+                  <p className="text-sm mt-1">
+                    {selectedRecord.fecha_vencimiento ? formatDate(selectedRecord.fecha_vencimiento) : "No especificada"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Creado</p>
+                  <p className="text-sm mt-1">{formatDate(selectedRecord.created_at)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Actualizado</p>
+                  <p className="text-sm mt-1">{formatDate(selectedRecord.updated_at)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedRecord(null)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
