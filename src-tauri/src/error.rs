@@ -9,6 +9,9 @@ pub enum AppError {
     #[error("Error de base de datos: {0}")]
     Database(#[from] sqlx::Error),
     
+    #[error("Error de migración: {0}")]
+    Migration(#[from] sqlx::migrate::MigrateError),
+    
     #[error("Error de sincronización: {0}")]
     Sync(String),
     
@@ -32,6 +35,5 @@ impl From<AppError> for String {
     }
 }
 
-pub type AppResult<T> = Result<T, AppError>;
 pub type Result<T> = std::result::Result<T, AppError>;
 

@@ -7,7 +7,7 @@ pub mod commands;
 
 // Re-exports
 pub use db::{DatabasePool, init_databases};
-pub use error::{AppError, AppResult};
+pub use error::AppError;
 
 use std::env;
 
@@ -64,11 +64,13 @@ pub fn run() {
                     get_db_status,
                     // Commands de Expedientes
                     commands::obtener_expedientes,
-                    commands::get_expediente,
-                    commands::create_expediente,
-                    commands::update_expediente,
-                    commands::delete_expediente,
-                    commands::search_expedientes,
+                    // Commands de Órdenes de Compra
+                    commands::obtener_proveedores,
+                    commands::crear_proveedor,
+                    commands::obtener_config_topes,
+                    commands::actualizar_config_tope,
+                    commands::crear_orden_compra,
+                    commands::obtener_ordenes_compra,
                     // Commands de Vehículos
                     commands::get_all_vehiculos,
                     commands::get_vehiculo,

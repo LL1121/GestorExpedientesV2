@@ -105,6 +105,9 @@ pub async fn init_databases(pools: &DatabasePool) -> Result<()> {
 
     println!("✓ Migraciones completadas en SQLite");
 
+    // Ejecutar migraciones de OC en SQLite
+    crate::db::migrations_oc::run_sqlite_oc_migrations(&pools.sqlite).await?;
+
     // Si PostgreSQL está disponible, ejecutar migraciones allá también
     if let Some(postgres) = &pools.postgres {
         sqlx::migrate!("./migrations")
@@ -112,6 +115,9 @@ pub async fn init_databases(pools: &DatabasePool) -> Result<()> {
             .await?;
 
         println!("✓ Migraciones completadas en PostgreSQL");
+
+        // Ejecutar migraciones de OC en PostgreSQL
+        crate::db::migrations_oc::run_postgres_oc_migrations(postgres).await?;
     }
 
     Ok(())

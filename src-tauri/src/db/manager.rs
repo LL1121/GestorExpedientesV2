@@ -1,7 +1,7 @@
 use sqlx::{Pool, Sqlite, Postgres, sqlite::SqlitePoolOptions, sqlite::SqliteConnectOptions, postgres::PgPoolOptions};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, Result};
 use std::str::FromStr;
 
 /// Configuración de las bases de datos
@@ -50,7 +50,7 @@ impl DatabaseManager {
     /// let config = DatabaseConfig::default();
     /// let db_manager = DatabaseManager::new(config).await?;
     /// ```
-    pub async fn new(config: DatabaseConfig) -> AppResult<Self> {
+    pub async fn new(config: DatabaseConfig) -> Result<Self> {
         // Crear el pool de SQLite (local)
         eprintln!("🔗 Conectando a SQLite: {}", config.sqlite_path);
         
@@ -138,7 +138,7 @@ impl DatabaseManager {
 
     /// Intenta reconectar a PostgreSQL
     /// Útil para reintentar la conexión después de perder conectividad
-    pub async fn reconnect_postgres(&self) -> AppResult<bool> {
+    pub async fn reconnect_postgres(&self) -> Result<bool> {
         if let Some(ref pg_url) = self.config.postgres_url {
             match PgPoolOptions::new()
                 .max_connections(self.config.max_connections)
@@ -173,10 +173,10 @@ impl DatabaseManager {
     /// Ejecuta una operación en ambas bases de datos (dual-write)
     /// Si PostgreSQL falla, la operación en SQLite se mantiene
     /// Retorna (sqlite_success, postgres_success)
-    pub async fn dual_execute<F, Fut>(&self, operation: F) -> AppResult<(bool, bool)>
+    pub async fn dual_execute<F, Fut>(&self, operation: F) -> Result<(bool, bool)>
     where
         F: Fn() -> Fut,
-        Fut: std::future::Future<Output = AppResult<()>>,
+        Fut: std::future::Future<Output = Result<()>>,
     {
         // Ejecutar en SQLite (principal)
         let sqlite_result = operation().await;

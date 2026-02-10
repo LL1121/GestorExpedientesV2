@@ -4,6 +4,7 @@
 pub mod database;
 pub mod manager;
 pub mod migrations;
+pub mod migrations_oc;
 
 pub use database::{DatabasePool, init_databases};
 pub use manager::{DatabaseManager, DatabaseConfig, config_from_env};

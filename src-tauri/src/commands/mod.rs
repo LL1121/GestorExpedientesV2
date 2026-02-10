@@ -2,12 +2,14 @@
 // Agrupa todos los commands que el frontend puede invocar
 
 pub mod expedientes;
+pub mod ordenes_compra;
 pub mod vehiculos;
 pub mod tickets;
 pub mod agentes;
 pub mod exports;
 
 pub use expedientes::*;
+pub use ordenes_compra::*;
 pub use vehiculos::*;
 pub use tickets::*;
 pub use agentes::*;

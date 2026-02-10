@@ -6,13 +6,13 @@ use uuid::Uuid;
 use chrono::Utc;
 
 use crate::models::expediente::{Expediente, CreateExpediente, UpdateExpediente};
-use crate::error::{AppResult, AppError};
+use crate::error::{Result, AppError};
 
 pub struct ExpedienteRepository;
 
 impl ExpedienteRepository {
     /// Obtener todos los expedientes
-    pub async fn get_all(pool: &Pool<Sqlite>) -> AppResult<Vec<Expediente>> {
+    pub async fn get_all(pool: &Pool<Sqlite>) -> Result<Vec<Expediente>> {
         let expedientes = sqlx::query_as::<_, Expediente>(
             "SELECT * FROM expedientes ORDER BY created_at DESC"
         )
@@ -23,7 +23,7 @@ impl ExpedienteRepository {
     }
     
     /// Obtener un expediente por ID
-    pub async fn get_by_id(pool: &Pool<Sqlite>, id: Uuid) -> AppResult<Expediente> {
+    pub async fn get_by_id(pool: &Pool<Sqlite>, id: Uuid) -> Result<Expediente> {
         let expediente = sqlx::query_as::<_, Expediente>(
             "SELECT * FROM expedientes WHERE id = ?"
         )
@@ -36,7 +36,7 @@ impl ExpedienteRepository {
     }
     
     /// Crear un nuevo expediente
-    pub async fn create(pool: &Pool<Sqlite>, data: CreateExpediente) -> AppResult<Expediente> {
+    pub async fn create(pool: &Pool<Sqlite>, data: CreateExpediente) -> Result<Expediente> {
         let id = Uuid::new_v4();
         let now = Utc::now();
         
@@ -75,7 +75,7 @@ impl ExpedienteRepository {
     }
     
     /// Actualizar un expediente existente
-    pub async fn update(pool: &Pool<Sqlite>, id: Uuid, data: UpdateExpediente) -> AppResult<Expediente> {
+    pub async fn update(pool: &Pool<Sqlite>, id: Uuid, data: UpdateExpediente) -> Result<Expediente> {
         // Verificar que el expediente existe
         let _ = Self::get_by_id(pool, id).await?;
         
@@ -140,7 +140,7 @@ impl ExpedienteRepository {
     }
     
     /// Eliminar un expediente
-    pub async fn delete(pool: &Pool<Sqlite>, id: Uuid) -> AppResult<()> {
+    pub async fn delete(pool: &Pool<Sqlite>, id: Uuid) -> Result<()> {
         let result = sqlx::query("DELETE FROM expedientes WHERE id = ?")
             .bind(id.to_string())
             .execute(pool)
@@ -154,7 +154,7 @@ impl ExpedienteRepository {
     }
     
     /// Buscar expedientes por texto (número o asunto)
-    pub async fn search(pool: &Pool<Sqlite>, query: &str) -> AppResult<Vec<Expediente>> {
+    pub async fn search(pool: &Pool<Sqlite>, query: &str) -> Result<Vec<Expediente>> {
         let search_pattern = format!("%{}%", query);
         
         let expedientes = sqlx::query_as::<_, Expediente>(
