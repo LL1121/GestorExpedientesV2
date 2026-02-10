@@ -36,7 +36,7 @@ pub fn run() {
         .unwrap()
         .block_on(async {
             // Obtener rutas de bases de datos del entorno
-            let sqlite_path = env::var("SQLITE_PATH").unwrap_or_else(|_| "app.db".to_string());
+            let sqlite_path = env::var("SQLITE_PATH").unwrap_or_else(|_| "../app.db".to_string());
             let postgres_url = env::var("DATABASE_URL").ok();
 
             // Inicializar pools de bases de datos
@@ -63,12 +63,19 @@ pub fn run() {
                     greet,
                     get_db_status,
                     // Commands de Expedientes
+                    commands::get_expedientes,
                     commands::obtener_expedientes,
+                    commands::get_expediente,
+                    commands::create_expediente,
+                    commands::update_expediente,
+                    commands::delete_expediente,
+                    commands::search_expedientes,
                     // Commands de Órdenes de Compra
                     commands::obtener_proveedores,
                     commands::crear_proveedor,
                     commands::obtener_config_topes,
                     commands::actualizar_config_tope,
+                    commands::preparar_nueva_oc,
                     commands::crear_orden_compra,
                     commands::obtener_ordenes_compra,
                     // Commands de Vehículos

@@ -53,11 +53,15 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ExpedienteService } from "@/services/expediente.service";
 import type { Expediente, EstadoExpediente, TipoExpediente, Prioridad, CreateExpedienteInput } from "@/types/expediente";
+import type { NuevaOCPreparada } from "@/types/orden_compra";
+import { OrdenCompraService } from "@/services/orden_compra.service";
 import Movilidades from "@/components/Movilidades";
 import Personal from "@/components/Personal";
+import FormularioOC from "@/components/FormularioOC";
+import ConfigTopes from "@/components/ConfigTopes";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
-type ActiveView = "dashboard" | "archivo" | "analiticas" | "configuracion" | "movilidades" | "personal";
+type ActiveView = "dashboard" | "archivo" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc";
 
 export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -71,17 +75,31 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
+  const [ocDraft, setOcDraft] = useState<NuevaOCPreparada | null>(null);
   const [newExpediente, setNewExpediente] = useState<Partial<CreateExpedienteInput> & { estado?: EstadoExpediente }>({
     tipo: "InfoGov",
     prioridad: "Media",
     fecha_inicio: new Date().toISOString().split('T')[0],
   });
-  const [configTab, setConfigTab] = useState<"general" | "notifications" | "about">("general");
+  const [configTab, setConfigTab] = useState<"general" | "notifications" | "about" | "oc">("general");
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
   });
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const formatError = (err: unknown) => {
+    if (err instanceof Error) return err.message;
+    if (typeof err === "string") return err;
+    if (err && typeof err === "object" && "message" in err) {
+      return String((err as { message?: unknown }).message);
+    }
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return "Error desconocido";
+    }
+  };
 
   // Cargar expedientes al montar el componente
   useEffect(() => {
@@ -98,6 +116,25 @@ export default function Dashboard() {
     }
   }, [darkMode]);
 
+  // Capturar errores globales
+  useEffect(() => {
+    const onError = (event: ErrorEvent) => {
+      setError(formatError(event.error || event.message));
+    };
+
+    const onUnhandled = (event: PromiseRejectionEvent) => {
+      setError(formatError(event.reason));
+    };
+
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onUnhandled);
+
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onUnhandled);
+    };
+  }, []);
+
   const loadExpedientes = async () => {
     try {
       setLoading(true);
@@ -105,7 +142,7 @@ export default function Dashboard() {
       const data = await ExpedienteService.getAll();
       setExpedientes(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      setError(formatError(err));
     } finally {
       setLoading(false);
     }
@@ -127,12 +164,25 @@ export default function Dashboard() {
       });
       await loadExpedientes();
     } catch (err) {
-      alert("Error al crear expediente: " + (err instanceof Error ? err.message : "Error desconocido"));
+      alert("Error al crear expediente: " + formatError(err));
     }
   };
 
   const handleViewChange = (view: ActiveView) => {
     setActiveView(view);
+  };
+
+  const handleGenerarOC = async (expediente: Expediente) => {
+    try {
+      const prepared = await OrdenCompraService.prepararNuevaOC(expediente.id);
+      setOcDraft(prepared);
+      setSelectedRecord(null);
+      setActiveView("formulario-oc");
+    } catch (err) {
+      const errorMessage = formatError(err);
+      console.error("Error al preparar OC:", err);
+      setError(`Error al preparar OC: ${errorMessage}`);
+    }
   };
 
   const filterOptions: { label: string; value: FilterType; count: number }[] = [
@@ -193,6 +243,20 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
+      {error && (
+        <div className="fixed top-4 right-4 z-50 max-w-xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <div className="space-y-1">
+              <p className="font-semibold">Error</p>
+              <p className="break-words">{error}</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setError(null)}>
+              Cerrar
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Sidebar */}
       <aside
         className={cn(
@@ -759,6 +823,17 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Vista: Formulario OC */}
+          {activeView === "formulario-oc" && ocDraft && (
+            <FormularioOC
+              data={ocDraft}
+              onBack={() => {
+                setOcDraft(null);
+                setActiveView("dashboard");
+              }}
+            />
+          )}
+
           {/* Vista: Configuración */}
           {activeView === "configuracion" && (
             <div className="space-y-6">
@@ -881,6 +956,10 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
+                )}
+
+                {configTab === "oc" && (
+                  <ConfigTopes />
                 )}
 
                 {/* About Tab */}
@@ -1130,9 +1209,21 @@ export default function Dashboard() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedRecord(null)}>
-              Cerrar
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (selectedRecord) {
+                    handleGenerarOC(selectedRecord);
+                  }
+                }}
+              >
+                Generar Orden de Compra
+              </Button>
+              <Button variant="outline" onClick={() => setSelectedRecord(null)}>
+                Cerrar
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

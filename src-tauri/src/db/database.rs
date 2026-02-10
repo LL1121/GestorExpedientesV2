@@ -4,6 +4,7 @@ use std::str::FromStr;
 use std::path::Path;
 use std::fs;
 use crate::error::Result;
+use crate::db::migrations::run_sqlite_migrations;
 
 /// Pool de conexiones SQLite y PostgreSQL
 #[derive(Clone)]
@@ -99,10 +100,7 @@ async fn create_postgres_pool(database_url: &str) -> Result<PgPool> {
 /// * `pools` - Pool de conexiones
 pub async fn init_databases(pools: &DatabasePool) -> Result<()> {
     // Ejecutar migraciones en SQLite (base de datos local)
-    sqlx::migrate!("./migrations")
-        .run(&pools.sqlite)
-        .await?;
-
+    run_sqlite_migrations(&pools.sqlite).await?;
     println!("✓ Migraciones completadas en SQLite");
 
     // Ejecutar migraciones de OC en SQLite
@@ -110,12 +108,6 @@ pub async fn init_databases(pools: &DatabasePool) -> Result<()> {
 
     // Si PostgreSQL está disponible, ejecutar migraciones allá también
     if let Some(postgres) = &pools.postgres {
-        sqlx::migrate!("./migrations")
-            .run(postgres)
-            .await?;
-
-        println!("✓ Migraciones completadas en PostgreSQL");
-
         // Ejecutar migraciones de OC en PostgreSQL
         crate::db::migrations_oc::run_postgres_oc_migrations(postgres).await?;
     }

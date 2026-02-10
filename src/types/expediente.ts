@@ -10,6 +10,10 @@ export interface Expediente {
   numero: string;
   año: number;
   tipo: TipoExpediente;
+  nro_infogov?: string | null;
+  nro_gde?: string | null;
+  caratula?: string | null;
+  resolucion_nro?: string | null;
   asunto: string;
   descripcion: string | null;
   area_responsable: string;
@@ -30,6 +34,10 @@ export interface CreateExpedienteInput {
   numero: string;
   año: number;
   tipo: TipoExpediente;
+  nro_infogov?: string;
+  nro_gde?: string;
+  caratula?: string;
+  resolucion_nro?: string;
   asunto: string;
   descripcion?: string;
   area_responsable: string;
@@ -42,6 +50,10 @@ export interface CreateExpedienteInput {
 export interface UpdateExpedienteInput {
   asunto?: string;
   descripcion?: string;
+  nro_infogov?: string;
+  nro_gde?: string;
+  caratula?: string;
+  resolucion_nro?: string;
   prioridad?: Prioridad;
   estado?: EstadoExpediente;
   fecha_vencimiento?: string;

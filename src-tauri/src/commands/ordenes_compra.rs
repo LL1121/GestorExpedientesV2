@@ -2,6 +2,7 @@
 use crate::db::DatabasePool;
 use crate::models::orden_compra::*;
 use chrono::Datelike;
+use serde::Serialize;
 use sqlx::{Row, SqlitePool, PgPool};
 use uuid::Uuid;
 
@@ -193,6 +194,176 @@ async fn update_tope_sqlite(pool: &SqlitePool, data: &UpdateConfigTope) -> Resul
     .fetch_one(pool)
     .await?;
     Ok(tope)
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ExpedienteOCData {
+    pub id: String,
+    pub numero: String,
+    pub año: i32,
+    pub asunto: String,
+    pub nro_infogov: Option<String>,
+    pub nro_gde: Option<String>,
+    pub caratula: Option<String>,
+    pub resolucion_nro: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct NuevaOCPreparada {
+    pub expediente: ExpedienteOCData,
+    pub numero_oc: String,
+    pub pedido_nro: i32,
+    pub fecha: String,
+    pub destino: String,
+    pub forma_pago: String,
+    pub plazo_entrega: String,
+    pub es_iva_inscripto: bool,
+    pub tipo_contratacion: String,
+    pub subtotal: f64,
+    pub iva: f64,
+    pub total: f64,
+    pub total_en_letras: String,
+}
+
+/// Preparar una nueva OC a partir de un expediente
+#[tauri::command]
+pub async fn preparar_nueva_oc(
+    pools: tauri::State<'_, DatabasePool>,
+    expediente_id: String,
+) -> Result<NuevaOCPreparada, String> {
+    println!("📦 Preparando OC para expediente: {}", expediente_id);
+    
+    if let Some(pg_pool) = &pools.postgres {
+        match preparar_nueva_oc_postgres(pg_pool, &expediente_id).await {
+            Ok(prep) => {
+                println!("✓ OC preparada exitosamente desde PostgreSQL");
+                return Ok(prep);
+            }
+            Err(e) => {
+                eprintln!("⚠️ Error PostgreSQL al preparar OC: {}", e);
+            }
+        }
+    }
+
+    match preparar_nueva_oc_sqlite(&pools.sqlite, &expediente_id).await {
+        Ok(prep) => {
+            println!("✓ OC preparada exitosamente desde SQLite");
+            Ok(prep)
+        }
+        Err(e) => {
+            let error_msg = format!("Error de base de datos: {}", e);
+            eprintln!("✗ Error SQLite al preparar OC: {}", error_msg);
+            Err(error_msg)
+        }
+    }
+}
+
+async fn preparar_nueva_oc_postgres(pool: &PgPool, expediente_id: &str) -> Result<NuevaOCPreparada, sqlx::Error> {
+    let expediente = sqlx::query_as::<_, ExpedienteOCData>(
+        r#"
+        SELECT id::text, numero, año, asunto, nro_infogov, nro_gde, caratula, resolucion_nro
+        FROM expedientes
+        WHERE id = $1::uuid
+        "#
+    )
+    .bind(expediente_id)
+    .fetch_one(pool)
+    .await?;
+
+    let topes = get_topes_postgres(pool).await?;
+
+    let año_actual = chrono::Utc::now().year();
+    let ultima_oc: Option<String> = sqlx::query_scalar(
+        "SELECT numero_oc FROM ordenes_compra WHERE fecha >= $1 ORDER BY fecha DESC, pedido_nro DESC LIMIT 1"
+    )
+    .bind(format!("{}-01-01", año_actual))
+    .fetch_optional(pool)
+    .await?;
+
+    let numero_oc = generar_numero_oc(ultima_oc, año_actual);
+
+    let pedido_nro: i32 = sqlx::query_scalar(
+        "SELECT COALESCE(MAX(pedido_nro), 0) + 1 FROM ordenes_compra WHERE fecha >= $1"
+    )
+    .bind(format!("{}-01-01", año_actual))
+    .fetch_one(pool)
+    .await?;
+
+    let subtotal = 0.0;
+    let iva = 0.0;
+    let total = 0.0;
+    let tipo_contratacion = determinar_tipo_contratacion(total, &topes);
+    let total_en_letras = monto_a_letras(total);
+
+    Ok(NuevaOCPreparada {
+        expediente,
+        numero_oc,
+        pedido_nro,
+        fecha: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+        destino: "ZONA RIEGO MALARGUE".to_string(),
+        forma_pago: "Transferencia".to_string(),
+        plazo_entrega: "-".to_string(),
+        es_iva_inscripto: true,
+        tipo_contratacion,
+        subtotal,
+        iva,
+        total,
+        total_en_letras,
+    })
+}
+
+async fn preparar_nueva_oc_sqlite(pool: &SqlitePool, expediente_id: &str) -> Result<NuevaOCPreparada, sqlx::Error> {
+    let expediente = sqlx::query_as::<_, ExpedienteOCData>(
+        r#"
+        SELECT id, numero, año, asunto, nro_infogov, nro_gde, caratula, resolucion_nro
+        FROM expedientes
+        WHERE id = ?
+        "#
+    )
+    .bind(expediente_id)
+    .fetch_one(pool)
+    .await?;
+
+    let topes = get_topes_sqlite(pool).await?;
+
+    let año_actual = chrono::Utc::now().year();
+    let ultima_oc: Option<String> = sqlx::query_scalar(
+        "SELECT numero_oc FROM ordenes_compra WHERE fecha >= ? ORDER BY fecha DESC, pedido_nro DESC LIMIT 1"
+    )
+    .bind(format!("{}-01-01", año_actual))
+    .fetch_optional(pool)
+    .await?;
+
+    let numero_oc = generar_numero_oc(ultima_oc, año_actual);
+
+    let pedido_nro: i32 = sqlx::query_scalar(
+        "SELECT COALESCE(MAX(pedido_nro), 0) + 1 FROM ordenes_compra WHERE fecha >= ?"
+    )
+    .bind(format!("{}-01-01", año_actual))
+    .fetch_one(pool)
+    .await?;
+
+    let subtotal = 0.0;
+    let iva = 0.0;
+    let total = 0.0;
+    let tipo_contratacion = determinar_tipo_contratacion(total, &topes);
+    let total_en_letras = monto_a_letras(total);
+
+    Ok(NuevaOCPreparada {
+        expediente,
+        numero_oc,
+        pedido_nro,
+        fecha: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+        destino: "ZONA RIEGO MALARGUE".to_string(),
+        forma_pago: "Transferencia".to_string(),
+        plazo_entrega: "-".to_string(),
+        es_iva_inscripto: true,
+        tipo_contratacion,
+        subtotal,
+        iva,
+        total,
+        total_en_letras,
+    })
 }
 
 /// Crear una nueva Orden de Compra (con transacción)

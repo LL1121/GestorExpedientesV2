@@ -8,16 +8,25 @@ pub async fn run_sqlite_migrations(pool: &SqlitePool) -> Result<()> {
         r#"
         CREATE TABLE IF NOT EXISTS expedientes (
             id TEXT PRIMARY KEY,
-            numero INTEGER NOT NULL,
+            numero TEXT NOT NULL,
             año INTEGER NOT NULL,
+            tipo TEXT NOT NULL,
             asunto TEXT NOT NULL,
             descripcion TEXT,
-            tipo TEXT NOT NULL,
-            estado TEXT NOT NULL,
-            area TEXT,
-            solicitante TEXT,
-            fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
-            fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+            area_responsable TEXT NOT NULL DEFAULT 'Sin definir',
+            prioridad TEXT NOT NULL DEFAULT 'MEDIA',
+            estado TEXT NOT NULL DEFAULT 'INICIADO',
+            fecha_inicio DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            fecha_vencimiento DATETIME,
+            fecha_finalizacion DATETIME,
+            agente_responsable_id TEXT,
+            archivos_adjuntos TEXT,
+            observaciones TEXT,
+            synced_at DATETIME,
+            nro_infogov TEXT,
+            nro_gde TEXT,
+            caratula TEXT,
+            resolucion_nro TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -25,6 +34,96 @@ pub async fn run_sqlite_migrations(pool: &SqlitePool) -> Result<()> {
     )
     .execute(pool)
     .await?;
+
+    // Asegurar columnas nuevas en instalaciones existentes
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN nro_infogov TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN nro_gde TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN caratula TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN resolucion_nro TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN area_responsable TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN prioridad TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN estado TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN fecha_inicio DATETIME")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN fecha_vencimiento DATETIME")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN fecha_finalizacion DATETIME")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN agente_responsable_id TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN archivos_adjuntos TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN observaciones TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN synced_at DATETIME")
+        .execute(pool)
+        .await
+        .ok();
+
+    // Normalizar valores nulos para columnas obligatorias
+    sqlx::query("UPDATE expedientes SET area_responsable = 'Sin definir' WHERE area_responsable IS NULL")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("UPDATE expedientes SET prioridad = 'MEDIA' WHERE prioridad IS NULL")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("UPDATE expedientes SET estado = 'INICIADO' WHERE estado IS NULL")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("UPDATE expedientes SET fecha_inicio = COALESCE(fecha_inicio, created_at, CURRENT_TIMESTAMP) WHERE fecha_inicio IS NULL")
+        .execute(pool)
+        .await
+        .ok();
+
+    // Normalizar enums a SCREAMING_SNAKE_CASE para evitar errores de decode
+    sqlx::query("UPDATE expedientes SET tipo = UPPER(tipo) WHERE tipo IS NOT NULL")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("UPDATE expedientes SET prioridad = UPPER(prioridad) WHERE prioridad IS NOT NULL")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("UPDATE expedientes SET estado = UPPER(estado) WHERE estado IS NOT NULL")
+        .execute(pool)
+        .await
+        .ok();
 
     // Tabla de agentes
     sqlx::query(

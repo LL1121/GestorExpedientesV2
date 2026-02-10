@@ -23,11 +23,11 @@ impl ExpedienteRepository {
     }
     
     /// Obtener un expediente por ID
-    pub async fn get_by_id(pool: &Pool<Sqlite>, id: Uuid) -> Result<Expediente> {
+    pub async fn get_by_id(pool: &Pool<Sqlite>, id: &str) -> Result<Expediente> {
         let expediente = sqlx::query_as::<_, Expediente>(
             "SELECT * FROM expedientes WHERE id = ?"
         )
-        .bind(id.to_string())
+        .bind(id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Expediente {} no encontrado", id)))?;
@@ -37,7 +37,7 @@ impl ExpedienteRepository {
     
     /// Crear un nuevo expediente
     pub async fn create(pool: &Pool<Sqlite>, data: CreateExpediente) -> Result<Expediente> {
-        let id = Uuid::new_v4();
+        let id = Uuid::new_v4().to_string();
         let now = Utc::now();
         
         let tipo_str = format!("{:?}", data.tipo).to_uppercase();
@@ -47,17 +47,21 @@ impl ExpedienteRepository {
         sqlx::query(
             r#"
             INSERT INTO expedientes (
-                id, numero, año, tipo, asunto, descripcion,
-                area_responsable, prioridad, estado,
+                id, numero, año, tipo, nro_infogov, nro_gde, caratula, resolucion_nro,
+                asunto, descripcion, area_responsable, prioridad, estado,
                 fecha_inicio, fecha_vencimiento, agente_responsable_id,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#
         )
-        .bind(id.to_string())
+        .bind(&id)
         .bind(&data.numero)
         .bind(data.año)
         .bind(tipo_str)
+        .bind(&data.nro_infogov)
+        .bind(&data.nro_gde)
+        .bind(&data.caratula)
+        .bind(&data.resolucion_nro)
         .bind(&data.asunto)
         .bind(&data.descripcion)
         .bind(&data.area_responsable)
@@ -65,17 +69,17 @@ impl ExpedienteRepository {
         .bind(estado_str)
         .bind(data.fecha_inicio)
         .bind(data.fecha_vencimiento)
-        .bind(data.agente_responsable_id.map(|id| id.to_string()))
+        .bind(data.agente_responsable_id)
         .bind(now)
         .bind(now)
         .execute(pool)
         .await?;
         
-        Self::get_by_id(pool, id).await
+        Self::get_by_id(pool, &id).await
     }
     
     /// Actualizar un expediente existente
-    pub async fn update(pool: &Pool<Sqlite>, id: Uuid, data: UpdateExpediente) -> Result<Expediente> {
+    pub async fn update(pool: &Pool<Sqlite>, id: &str, data: UpdateExpediente) -> Result<Expediente> {
         // Verificar que el expediente existe
         let _ = Self::get_by_id(pool, id).await?;
         
@@ -87,6 +91,18 @@ impl ExpedienteRepository {
         }
         if data.descripcion.is_some() {
             query = query.replace("WHERE", ", descripcion = ? WHERE");
+        }
+        if data.nro_infogov.is_some() {
+            query = query.replace("WHERE", ", nro_infogov = ? WHERE");
+        }
+        if data.nro_gde.is_some() {
+            query = query.replace("WHERE", ", nro_gde = ? WHERE");
+        }
+        if data.caratula.is_some() {
+            query = query.replace("WHERE", ", caratula = ? WHERE");
+        }
+        if data.resolucion_nro.is_some() {
+            query = query.replace("WHERE", ", resolucion_nro = ? WHERE");
         }
         if data.prioridad.is_some() {
             query = query.replace("WHERE", ", prioridad = ? WHERE");
@@ -107,13 +123,25 @@ impl ExpedienteRepository {
             query = query.replace("WHERE", ", observaciones = ? WHERE");
         }
         
-        let mut query_builder = sqlx::query(&query).bind(Utc::now()).bind(id.to_string());
+        let mut query_builder = sqlx::query(&query).bind(Utc::now()).bind(id);
         
         if let Some(asunto) = data.asunto {
             query_builder = query_builder.bind(asunto);
         }
         if let Some(descripcion) = data.descripcion {
             query_builder = query_builder.bind(descripcion);
+        }
+        if let Some(nro_infogov) = data.nro_infogov {
+            query_builder = query_builder.bind(nro_infogov);
+        }
+        if let Some(nro_gde) = data.nro_gde {
+            query_builder = query_builder.bind(nro_gde);
+        }
+        if let Some(caratula) = data.caratula {
+            query_builder = query_builder.bind(caratula);
+        }
+        if let Some(resolucion_nro) = data.resolucion_nro {
+            query_builder = query_builder.bind(resolucion_nro);
         }
         if let Some(prioridad) = data.prioridad {
             query_builder = query_builder.bind(format!("{:?}", prioridad).to_uppercase());
@@ -140,9 +168,9 @@ impl ExpedienteRepository {
     }
     
     /// Eliminar un expediente
-    pub async fn delete(pool: &Pool<Sqlite>, id: Uuid) -> Result<()> {
+    pub async fn delete(pool: &Pool<Sqlite>, id: &str) -> Result<()> {
         let result = sqlx::query("DELETE FROM expedientes WHERE id = ?")
-            .bind(id.to_string())
+            .bind(id)
             .execute(pool)
             .await?;
         

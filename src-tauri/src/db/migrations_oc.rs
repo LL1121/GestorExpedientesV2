@@ -21,49 +21,22 @@ pub async fn run_sqlite_oc_migrations(pool: &SqlitePool) -> Result<()> {
     .await?;
 
     // Actualizar tabla expedientes (agregar campos si no existen)
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS expedientes_new (
-            id TEXT PRIMARY KEY,
-            numero TEXT NOT NULL,
-            año INTEGER NOT NULL,
-            asunto TEXT NOT NULL,
-            descripcion TEXT NOT NULL,
-            tipo TEXT NOT NULL,
-            estado TEXT NOT NULL,
-            area TEXT NOT NULL,
-            solicitante TEXT NOT NULL,
-            nro_infogov TEXT UNIQUE,
-            nro_gde TEXT,
-            caratula TEXT,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-        "#
-    )
-    .execute(pool)
-    .await?;
-
-    // Migrar datos si la tabla vieja existe
-    sqlx::query(
-        r#"
-        INSERT OR IGNORE INTO expedientes_new 
-            (id, numero, año, asunto, descripcion, tipo, estado, area, solicitante, created_at, updated_at)
-        SELECT id, numero, año, asunto, descripcion, tipo, estado, area, solicitante, 
-               COALESCE(created_at, CURRENT_TIMESTAMP), COALESCE(updated_at, CURRENT_TIMESTAMP)
-        FROM expedientes
-        "#
-    )
-    .execute(pool)
-    .await.ok(); // Ignorar error si no existe
-
-    sqlx::query("DROP TABLE IF EXISTS expedientes")
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN nro_infogov TEXT")
         .execute(pool)
-        .await.ok();
-
-    sqlx::query("ALTER TABLE expedientes_new RENAME TO expedientes")
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN nro_gde TEXT")
         .execute(pool)
-        .await?;
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN caratula TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN resolucion_nro TEXT")
+        .execute(pool)
+        .await
+        .ok();
 
     // Tabla config_topes
     sqlx::query(
@@ -189,7 +162,8 @@ pub async fn run_postgres_oc_migrations(pool: &PgPool) -> Result<()> {
         ALTER TABLE expedientes 
         ADD COLUMN IF NOT EXISTS nro_infogov TEXT UNIQUE,
         ADD COLUMN IF NOT EXISTS nro_gde TEXT,
-        ADD COLUMN IF NOT EXISTS caratula TEXT
+        ADD COLUMN IF NOT EXISTS caratula TEXT,
+        ADD COLUMN IF NOT EXISTS resolucion_nro TEXT
         "#
     )
     .execute(pool)

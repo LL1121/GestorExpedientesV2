@@ -1,81 +1,69 @@
 // Tauri Commands para Expedientes
 // Estas funciones son invocadas desde el frontend con invoke()
 
-use serde::{Deserialize, Serialize};
-use sqlx::Row;
+use tauri::State;
+
 use crate::db::DatabasePool;
+use crate::models::expediente::{Expediente, CreateExpediente, UpdateExpediente};
+use crate::repositories::ExpedienteRepository;
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
-pub struct ExpedienteData {
-    pub id: String,
-    pub numero: String,
-    pub año: i32,
-    pub asunto: String,
-    pub descripcion: String,
-    pub tipo: String,
-    pub estado: String,
-    pub area: String,
-    pub solicitante: String,
-}
-
-/// Obtener todos los expedientes con fallback automático
-/// PostgreSQL → SQLite (si PostgreSQL falla)
+/// Obtener todos los expedientes
 #[tauri::command]
-pub async fn obtener_expedientes(
-    pools: tauri::State<'_, DatabasePool>,
-) -> Result<Vec<ExpedienteData>, String> {
-    // Intentar obtener de PostgreSQL primero
-    if let Some(pg_pool) = &pools.postgres {
-        match get_expedientes_postgres(pg_pool).await {
-            Ok(expedientes) => {
-                println!("✓ Expedientes obtenidos de PostgreSQL");
-                return Ok(expedientes);
-            }
-            Err(e) => {
-                eprintln!("⚠️ Error PostgreSQL: {}. Usando SQLite local...", e);
-            }
-        }
-    }
-
-    // Fallback a SQLite
-    match get_expedientes_sqlite(&pools.sqlite).await {
-        Ok(expedientes) => {
-            println!("✓ Expedientes obtenidos de SQLite");
-            Ok(expedientes)
-        }
-        Err(e) => {
-            eprintln!("✗ Error al obtener expedientes: {}", e);
-            Err(e.to_string())
-        }
-    }
+pub async fn get_expedientes(pools: State<'_, DatabasePool>) -> Result<Vec<Expediente>, String> {
+    ExpedienteRepository::get_all(pools.get_sqlite())
+        .await
+        .map_err(|e| e.to_string())
 }
 
-/// Obtiene expedientes desde PostgreSQL
-async fn get_expedientes_postgres(pool: &sqlx::PgPool) -> Result<Vec<ExpedienteData>, sqlx::Error> {
-    let expedientes = sqlx::query_as::<_, ExpedienteData>(
-        r#"
-        SELECT id::text, numero, año, asunto, descripcion, tipo, estado, area, solicitante
-        FROM expedientes
-        ORDER BY año DESC, numero DESC
-        "#,
-    )
-    .fetch_all(pool)
-    .await?;
-
-    Ok(expedientes)
+/// Alias para compatibilidad
+#[tauri::command]
+pub async fn obtener_expedientes(pools: State<'_, DatabasePool>) -> Result<Vec<Expediente>, String> {
+    get_expedientes(pools).await
 }
 
-/// Obtiene expedientes desde SQLite
-async fn get_expedientes_sqlite(pool: &sqlx::SqlitePool) -> Result<Vec<ExpedienteData>, sqlx::Error> {
-    let expedientes = sqlx::query_as::<_, ExpedienteData>(
-        r#"
-        SELECT id, numero, año, asunto, descripcion, tipo, estado, area, solicitante
-        FROM expedientes
-        ORDER BY año DESC, numero DESC
-        "#,
-    )
-    .fetch_all(pool)
-    .await?;
+/// Obtener un expediente por ID
+#[tauri::command]
+pub async fn get_expediente(pools: State<'_, DatabasePool>, id: String) -> Result<Expediente, String> {
+    ExpedienteRepository::get_by_id(pools.get_sqlite(), &id)
+        .await
+        .map_err(|e| e.to_string())
+}
 
-    Ok(expedientes)
+/// Crear un nuevo expediente
+#[tauri::command]
+pub async fn create_expediente(
+    pools: State<'_, DatabasePool>,
+    data: CreateExpediente,
+) -> Result<Expediente, String> {
+    ExpedienteRepository::create(pools.get_sqlite(), data)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Actualizar un expediente existente
+#[tauri::command]
+pub async fn update_expediente(
+    pools: State<'_, DatabasePool>,
+    id: String,
+    data: UpdateExpediente,
+) -> Result<Expediente, String> {
+    ExpedienteRepository::update(pools.get_sqlite(), &id, data)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Eliminar un expediente
+#[tauri::command]
+pub async fn delete_expediente(pools: State<'_, DatabasePool>, id: String) -> Result<(), String> {
+    ExpedienteRepository::delete(pools.get_sqlite(), &id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Buscar expedientes por texto
+#[tauri::command]
+pub async fn search_expedientes(pools: State<'_, DatabasePool>, query: String) -> Result<Vec<Expediente>, String> {
+    ExpedienteRepository::search(pools.get_sqlite(), &query)
+        .await
+        .map_err(|e| e.to_string())
 }
