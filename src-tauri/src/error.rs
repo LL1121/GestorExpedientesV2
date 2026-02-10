@@ -2,6 +2,7 @@
 // Usamos thiserror para definir errores de forma limpia
 
 use thiserror::Error;
+use std::io;
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -17,6 +18,9 @@ pub enum AppError {
     #[error("Error de validación: {0}")]
     Validation(String),
     
+    #[error("Error de I/O: {0}")]
+    Io(#[from] io::Error),
+    
     #[error("Error general: {0}")]
     Internal(String),
 }
@@ -29,3 +33,5 @@ impl From<AppError> for String {
 }
 
 pub type AppResult<T> = Result<T, AppError>;
+pub type Result<T> = std::result::Result<T, AppError>;
+

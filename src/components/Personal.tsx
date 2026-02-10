@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { Users, Plus, Edit, Trash2, AlertCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { cn } from "@/lib/utils";
 import type { Agente, CreateAgenteInput, AgenteConSemaforo, SemaforoStatus } from "@/types/agente";
 
@@ -14,8 +14,21 @@ export default function Personal() {
   const [agentes, setAgentes] = useState<AgenteConSemaforo[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedAgente, setSelectedAgente] = useState<AgenteConSemaforo | null>(null);
+  const [editingAgente, setEditingAgente] = useState<AgenteConSemaforo | null>(null);
   const [newAgente, setNewAgente] = useState<Partial<CreateAgenteInput>>({});
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     loadAgentes();
@@ -85,15 +98,42 @@ export default function Personal() {
     }
   };
 
-  const handleDeleteAgente = async (id: string) => {
-    if (confirm("¿Eliminar este agente?")) {
-      try {
-        // await invoke("delete_agente", { id });
-        await loadAgentes();
-      } catch (error) {
-        alert("Error al eliminar: " + error);
-      }
+  const handleEditAgente = (agente: AgenteConSemaforo, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingAgente(agente);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateAgente = async () => {
+    if (!editingAgente) return;
+    try {
+      // await invoke("update_agente", { id: editingAgente.id, data: editingAgente });
+      alert("Agente actualizado exitosamente");
+      setIsEditDialogOpen(false);
+      setEditingAgente(null);
+      await loadAgentes();
+    } catch (error) {
+      alert("Error al actualizar agente: " + error);
     }
+  };
+
+  const handleDeleteAgente = async (_id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmDialog({
+      open: true,
+      title: "Eliminar Agente",
+      message: "¿Estás seguro de que deseas eliminar este agente? Esta acción no se puede deshacer.",
+      onConfirm: async () => {
+        try {
+          // await invoke("delete_agente", { id: _id });
+          await loadAgentes();
+        } catch (error) {
+          alert("Error al eliminar: " + error);
+        } finally {
+          setConfirmDialog({ ...confirmDialog, open: false });
+        }
+      },
+    });
   };
 
   const getSemaforoIndicator = (status?: SemaforoStatus) => {
@@ -112,16 +152,28 @@ export default function Personal() {
     );
   };
 
+  const getSemaforoLabel = (status?: SemaforoStatus) => {
+    if (!status) return "Sin información";
+
+    const labels = {
+      rojo: "Licencia vencida",
+      naranja: "Próxima a vencer",
+      verde: "Licencia vigente",
+    };
+
+    return labels[status];
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("es-AR");
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-700">
+      <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-white border-b border-slate-200 px-8 py-6">
-          <h1 className="text-2xl font-bold text-slate-900">Personal</h1>
+        <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 py-6 shrink-0">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Personal</h1>
           <p className="text-sm text-slate-600 mt-1">Gestión de agentes y control de licencias</p>
         </header>
 
@@ -135,7 +187,7 @@ export default function Personal() {
             <div className="space-y-6">
               {/* Stats */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-lg border border-slate-200 p-4">
+                <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-slate-600">Total Agentes</p>
@@ -182,7 +234,7 @@ export default function Personal() {
               {/* Action Button */}
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Semáforo de Licencias</h2>
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Semáforo de Licencias</h2>
                   <p className="text-sm text-slate-600">Control de vencimientos y renovaciones</p>
                 </div>
                 <Button onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
@@ -210,10 +262,10 @@ export default function Personal() {
               </div>
 
               {/* Table */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50">
+                    <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
                       <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Semáforo</th>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Legajo</th>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Apellido y Nombre</th>
@@ -229,17 +281,17 @@ export default function Personal() {
                     {agentes.map((agente) => (
                       <tr 
                         key={agente.id} 
-                        className="hover:bg-slate-50 cursor-pointer transition-colors"
+                        className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
                         onClick={() => setSelectedAgente(agente)}
                       >
                         <td className="py-4 px-4">
                           {getSemaforoIndicator(agente.semaforo_status)}
                         </td>
                         <td className="py-4 px-4">
-                          <span className="text-sm font-mono font-semibold text-slate-900">{agente.legajo}</span>
+                          <span className="text-sm font-mono font-semibold text-slate-900 dark:text-white">{agente.legajo}</span>
                         </td>
                         <td className="py-4 px-4">
-                          <span className="text-sm font-medium text-slate-900">{agente.apellido}, {agente.nombre}</span>
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">{agente.apellido}, {agente.nombre}</span>
                         </td>
                         <td className="py-4 px-4">
                           <span className="text-sm text-slate-600">{agente.dni}</span>
@@ -278,10 +330,18 @@ export default function Personal() {
                         </td>
                         <td className="py-4 px-4 text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="sm">
-                              <Edit className="h-4 w-4" />
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={(e) => handleEditAgente(agente, e)}
+                            >
+                              <Edit className="h-4 w-4 text-blue-500" />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteAgente(agente.id)}>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={(e) => handleDeleteAgente(agente.id, e)}
+                            >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>
@@ -298,7 +358,7 @@ export default function Personal() {
 
       {/* Dialog: Agregar Agente */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl bg-white">
+        <DialogContent className="max-w-2xl bg-white dark:bg-slate-800">
           <DialogHeader>
             <DialogTitle>Nuevo Agente</DialogTitle>
             <DialogDescription>Registra un nuevo agente en el sistema</DialogDescription>
@@ -355,14 +415,14 @@ export default function Personal() {
                   <SelectTrigger>
                     <SelectValue placeholder="Sin licencia" />
                   </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="B1" className="cursor-pointer hover:bg-slate-100">B1</SelectItem>
-                    <SelectItem value="B2" className="cursor-pointer hover:bg-slate-100">B2</SelectItem>
-                    <SelectItem value="C1" className="cursor-pointer hover:bg-slate-100">C1</SelectItem>
-                    <SelectItem value="C2" className="cursor-pointer hover:bg-slate-100">C2</SelectItem>
-                    <SelectItem value="D1" className="cursor-pointer hover:bg-slate-100">D1</SelectItem>
-                    <SelectItem value="D2" className="cursor-pointer hover:bg-slate-100">D2</SelectItem>
-                    <SelectItem value="Profesional" className="cursor-pointer hover:bg-slate-100">Profesional</SelectItem>
+                  <SelectContent className="bg-white dark:bg-slate-800">
+                    <SelectItem value="B1" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">B1</SelectItem>
+                    <SelectItem value="B2" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">B2</SelectItem>
+                    <SelectItem value="C1" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">C1</SelectItem>
+                    <SelectItem value="C2" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">C2</SelectItem>
+                    <SelectItem value="D1" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">D1</SelectItem>
+                    <SelectItem value="D2" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">D2</SelectItem>
+                    <SelectItem value="Profesional" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Profesional</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -383,9 +443,96 @@ export default function Personal() {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog: Editar Agente */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl bg-white dark:bg-slate-800">
+          <DialogHeader>
+            <DialogTitle>Editar Agente</DialogTitle>
+            <DialogDescription>Modifica los datos del agente</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nombre *</Label>
+                <Input
+                  placeholder="Juan"
+                  value={editingAgente?.nombre || ""}
+                  onChange={(e) => setEditingAgente(editingAgente ? { ...editingAgente, nombre: e.target.value } : null)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Apellido *</Label>
+                <Input
+                  placeholder="Pérez"
+                  value={editingAgente?.apellido || ""}
+                  onChange={(e) => setEditingAgente(editingAgente ? { ...editingAgente, apellido: e.target.value } : null)}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>DNI *</Label>
+                <Input
+                  placeholder="12345678"
+                  value={editingAgente?.dni || ""}
+                  onChange={(e) => setEditingAgente(editingAgente ? { ...editingAgente, dni: e.target.value } : null)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Legajo *</Label>
+                <Input
+                  placeholder="001"
+                  value={editingAgente?.legajo || ""}
+                  onChange={(e) => setEditingAgente(editingAgente ? { ...editingAgente, legajo: e.target.value } : null)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Área *</Label>
+              <Input
+                placeholder="Operaciones"
+                value={editingAgente?.area || ""}
+                onChange={(e) => setEditingAgente(editingAgente ? { ...editingAgente, area: e.target.value } : null)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo de Licencia</Label>
+                <Select value={editingAgente?.tipo_licencia} onValueChange={(value) => setEditingAgente(editingAgente ? { ...editingAgente, tipo_licencia: value as any } : null)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sin licencia" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-slate-800">
+                    <SelectItem value="B1" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">B1</SelectItem>
+                    <SelectItem value="B2" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">B2</SelectItem>
+                    <SelectItem value="C1" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">C1</SelectItem>
+                    <SelectItem value="C2" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">C2</SelectItem>
+                    <SelectItem value="D1" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">D1</SelectItem>
+                    <SelectItem value="D2" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">D2</SelectItem>
+                    <SelectItem value="Profesional" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Profesional</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Fecha de Vencimiento</Label>
+                <Input
+                  type="date"
+                  value={editingAgente?.fecha_vencimiento_licencia || ""}
+                  onChange={(e) => setEditingAgente(editingAgente ? { ...editingAgente, fecha_vencimiento_licencia: e.target.value } : null)}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpdateAgente} className="bg-blue-600 hover:bg-blue-700">Guardar Cambios</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog: Detalles de Agente */}
       <Dialog open={!!selectedAgente} onOpenChange={() => setSelectedAgente(null)}>
-        <DialogContent className="max-w-3xl bg-white">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Detalles del Agente</DialogTitle>
             <DialogDescription>Información completa del agente seleccionado</DialogDescription>
@@ -394,11 +541,11 @@ export default function Personal() {
             <div className="grid gap-6 py-4">
               {/* Semáforo de Licencia */}
               <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border-l-4" style={{
-                borderLeftColor: selectedAgente.semaforo_status === 'vencida' ? '#ef4444' : 
-                                 selectedAgente.semaforo_status === 'por_vencer' ? '#f59e0b' : '#10b981'
+                borderLeftColor: selectedAgente.semaforo_status === 'rojo' ? '#ef4444' : 
+                                 selectedAgente.semaforo_status === 'naranja' ? '#f59e0b' : '#10b981'
               }}>
                 <div className="flex-1">
-                  <p className="font-semibold text-slate-900">Estado de Licencia</p>
+                  <p className="font-semibold text-slate-900 dark:text-white">Estado de Licencia</p>
                   <p className="text-sm text-slate-600">{getSemaforoLabel(selectedAgente.semaforo_status)}</p>
                 </div>
                 {getSemaforoIndicator(selectedAgente.semaforo_status)}
@@ -410,19 +557,15 @@ export default function Personal() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-500">Legajo</p>
-                    <p className="text-base font-mono font-semibold text-slate-900">{selectedAgente.legajo}</p>
+                    <p className="text-base font-mono font-semibold text-slate-900 dark:text-white">{selectedAgente.legajo}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-500">Nombre Completo</p>
-                    <p className="text-base text-slate-900">{selectedAgente.apellido}, {selectedAgente.nombre}</p>
+                    <p className="text-base text-slate-900 dark:text-white">{selectedAgente.apellido}, {selectedAgente.nombre}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-slate-500">Email</p>
-                    <p className="text-base text-slate-900">{selectedAgente.email}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-slate-500">Teléfono</p>
-                    <p className="text-base text-slate-900">{selectedAgente.telefono}</p>
+                    <p className="text-sm font-medium text-slate-500">DNI</p>
+                    <p className="text-base text-slate-900 dark:text-white">{selectedAgente.dni}</p>
                   </div>
                 </div>
               </div>
@@ -432,18 +575,8 @@ export default function Personal() {
                 <h4 className="font-semibold text-slate-900 mb-3">Información Laboral</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-slate-500">Cargo</p>
-                    <p className="text-base text-slate-900">{selectedAgente.cargo}</p>
-                  </div>
-                  <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-500">Área</p>
-                    <p className="text-base text-slate-900">{selectedAgente.area}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-slate-500">Estado</p>
-                    <Badge className={selectedAgente.activo ? "bg-emerald-500" : "bg-slate-400"}>
-                      {selectedAgente.activo ? "Activo" : "Inactivo"}
-                    </Badge>
+                    <p className="text-base text-slate-900 dark:text-white">{selectedAgente.area}</p>
                   </div>
                 </div>
               </div>
@@ -454,24 +587,28 @@ export default function Personal() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-500">Tipo de Licencia</p>
-                    <Badge variant="secondary" className="text-sm">{selectedAgente.tipo_licencia}</Badge>
+                    <Badge variant="secondary" className="text-sm">{selectedAgente.tipo_licencia || "Sin licencia"}</Badge>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-500">Fecha de Vencimiento</p>
-                    <p className="text-base text-slate-900">{new Date(selectedAgente.fecha_vencimiento_licencia).toLocaleDateString('es-AR')}</p>
-                  </div>
-                  <div className="space-y-1 col-span-2">
-                    <p className="text-sm font-medium text-slate-500">Días hasta Vencimiento</p>
-                    <p className={cn(
-                      "text-2xl font-bold",
-                      selectedAgente.dias_hasta_vencimiento < 0 ? "text-red-600" :
-                      selectedAgente.dias_hasta_vencimiento <= 30 ? "text-amber-600" : "text-emerald-600"
-                    )}>
-                      {selectedAgente.dias_hasta_vencimiento < 0 ? 
-                        `Vencida hace ${Math.abs(selectedAgente.dias_hasta_vencimiento)} días` :
-                        `${selectedAgente.dias_hasta_vencimiento} días`
+                    <p className="text-base text-slate-900 dark:text-white">
+                      {selectedAgente.fecha_vencimiento_licencia 
+                        ? new Date(selectedAgente.fecha_vencimiento_licencia).toLocaleDateString('es-AR')
+                        : "No especificada"
                       }
                     </p>
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "h-3 w-3 rounded-full",
+                        selectedAgente.semaforo_status === "rojo" ? "bg-red-500" :
+                        selectedAgente.semaforo_status === "naranja" ? "bg-orange-500" : "bg-emerald-500"
+                      )} />
+                      <p className="text-sm font-medium text-slate-600">
+                        {getSemaforoLabel(selectedAgente.semaforo_status)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -487,6 +624,18 @@ export default function Personal() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog({ ...confirmDialog, open: false })}
+        variant="danger"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 }

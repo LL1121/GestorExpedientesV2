@@ -201,12 +201,18 @@ export default function Dashboard() {
         )}
       >
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-700">
-          {!sidebarCollapsed && <h1 className="font-semibold text-slate-900 dark:text-white text-lg">Irrigación Records</h1>}
+          {!sidebarCollapsed && (
+            <img 
+              src="/irrigacion-negro.png" 
+              alt="Irrigación" 
+              className="h-10 w-auto object-contain dark:invert mr-3 mb-1" 
+            />
+          )}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hover:bg-slate-100"
+            className="hover:bg-slate-100 dark:hover:bg-slate-700"
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -278,7 +284,7 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 py-4 mb-6">
             <div className="flex items-center gap-3">
               {/* Filtros con scroll */}
-              <div className="flex items-center gap-3 overflow-x-auto pr-6 flex-1" style={{ scrollbarWidth: 'thin' }}>
+              <div className="flex items-center gap-3 overflow-x-auto flex-1 min-w-0" style={{ scrollbarWidth: 'thin' }}>
                 <Filter className="h-4 w-4 text-slate-500 shrink-0" />
                 {filterOptions.map((option) => (
                   <button
@@ -288,7 +294,7 @@ export default function Dashboard() {
                       "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
                       activeFilter === option.value
                         ? "bg-blue-500 text-white"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                     )}
                   >
                     {option.label}
@@ -297,48 +303,51 @@ export default function Dashboard() {
                 ))}
               </div>
 
-              {/* Menú Desplegable de Acciones */}
-              <DropdownMenu onOpenChange={setIsDropdownOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 h-9 w-9 rounded-full hover:bg-blue-50 transition-all"
+              {/* Flecha a la derecha */}
+              <div className="shrink-0">
+                {/* Menú Desplegable de Acciones */}
+                <DropdownMenu onOpenChange={setIsDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 h-9 w-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                    >
+                      <ChevronDown className={cn(
+                        "h-5 w-5 text-blue-600 dark:text-blue-400 transition-all duration-300",
+                        isDropdownOpen && "rotate-180"
+                      )} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent 
+                    align="end" 
+                    className="w-56 bg-white dark:bg-slate-800 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
                   >
-                    <ChevronDown className={cn(
-                      "h-5 w-5 text-blue-600 transition-all duration-300",
-                      isDropdownOpen && "rotate-180"
-                    )} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  align="end" 
-                  className="w-56 bg-white animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
-                >
-                  <DropdownMenuItem
-                    onClick={() => setIsAddDialogOpen(true)}
-                    className="cursor-pointer py-3 focus:bg-blue-50"
-                  >
-                    <Plus className="h-4 w-4 mr-3 text-blue-600" />
-                    <span className="font-medium">Añadir Expediente</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      try {
-                        await invoke("exportar_excel_pendientes");
-                        alert("Informe exportado exitosamente");
-                      } catch (error) {
-                        alert("Error al exportar: " + error);
-                      }
-                    }}
-                    className="cursor-pointer py-3 focus:bg-emerald-50"
-                  >
-                    <FileSpreadsheet className="h-4 w-4 mr-3 text-emerald-600" />
-                    <span className="font-medium">Exportar Informe Automático</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem
+                      onClick={() => setIsAddDialogOpen(true)}
+                      className="cursor-pointer py-3 hover:bg-blue-50/80 dark:hover:bg-blue-900/20 transition-colors duration-200"
+                    >
+                      <Plus className="h-4 w-4 mr-3 text-blue-600 dark:text-blue-400" />
+                      <span className="font-medium">Añadir Expediente</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        try {
+                          await invoke("exportar_excel_pendientes");
+                          alert("Informe exportado exitosamente");
+                        } catch (error) {
+                          alert("Error al exportar: " + error);
+                        }
+                      }}
+                      className="cursor-pointer py-3 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/20 transition-colors duration-200"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 mr-3 text-emerald-600 dark:text-emerald-400" />
+                      <span className="font-medium">Exportar Informe Automático</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
         )}
@@ -364,10 +373,10 @@ export default function Dashboard() {
                 </p>
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
                 <table className="w-full">
                   <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
+                  <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Estado
                     </th>
@@ -407,7 +416,7 @@ export default function Dashboard() {
                         </div>
                       </td>
                       <td className="py-4 px-4">
-                        <span className="text-sm font-mono text-slate-900">
+                        <span className="text-sm font-mono text-slate-900 dark:text-white">
                           {record.numero}-{record.año}
                         </span>
                       </td>
@@ -491,7 +500,7 @@ export default function Dashboard() {
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Archivo</h2>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Archivo</h2>
                   <p className="text-sm text-slate-600 mt-1">Expedientes archivados y finalizados</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={loadExpedientes}>
@@ -552,7 +561,7 @@ export default function Dashboard() {
                 ) : (
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50">
+                      <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">ID</th>
                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Asunto</th>
                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Tipo</th>
@@ -565,7 +574,7 @@ export default function Dashboard() {
                       {expedientes.filter(e => e.estado === "Archivado" || e.estado === "Finalizado").map((record) => (
                         <tr key={record.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedRecord(record)}>
                           <td className="py-4 px-4">
-                            <span className="text-sm font-mono text-slate-900">{record.numero}-{record.año}</span>
+                            <span className="text-sm font-mono text-slate-900 dark:text-white">{record.numero}-{record.año}</span>
                           </td>
                           <td className="py-4 px-4">
                             <span className="text-sm font-medium text-slate-900 line-clamp-1">{record.asunto}</span>
@@ -604,7 +613,7 @@ export default function Dashboard() {
             <div className="space-y-6">
               {/* Header */}
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Analíticas y Reportes</h2>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Analíticas y Reportes</h2>
                 <p className="text-sm text-slate-600 mt-1">Métricas y estadísticas del sistema</p>
               </div>
 
@@ -667,7 +676,7 @@ export default function Dashboard() {
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-sm font-medium text-slate-700">{item.estado}</span>
-                            <span className="text-sm font-semibold text-slate-900">{item.count}</span>
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white">{item.count}</span>
                           </div>
                           <div className="w-full bg-slate-100 rounded-full h-2">
                             <div
@@ -694,7 +703,7 @@ export default function Dashboard() {
                       <div key={item.tipo} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                         <span className="text-sm font-medium text-slate-700">{item.label}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-slate-900">{item.count}</span>
+                          <span className="text-lg font-bold text-slate-900 dark:text-white">{item.count}</span>
                           <span className="text-xs text-slate-500">
                             ({expedientes.length > 0 ? Math.round((item.count / expedientes.length) * 100) : 0}%)
                           </span>
@@ -725,8 +734,8 @@ export default function Dashboard() {
                         const finalizados = areaExp.filter(e => e.estado === "Finalizado").length;
                         const eficiencia = areaExp.length > 0 ? Math.round((finalizados / areaExp.length) * 100) : 0;
                         return (
-                          <tr key={area} className="hover:bg-slate-50">
-                            <td className="py-3 px-4 text-sm font-medium text-slate-900">{area}</td>
+                          <tr key={area} className="hover:bg-slate-50 dark:bg-slate-700">
+                            <td className="py-3 px-4 text-sm font-medium text-slate-900 dark:text-white">{area}</td>
                             <td className="py-3 px-4 text-sm text-center text-slate-600">{areaExp.length}</td>
                             <td className="py-3 px-4 text-sm text-center text-slate-600">
                               {areaExp.filter(e => e.estado === "EnProceso").length}
@@ -755,7 +764,7 @@ export default function Dashboard() {
             <div className="space-y-6">
               {/* Header */}
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Configuración</h2>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Configuración</h2>
                 <p className="text-sm text-slate-600 mt-1">Preferencias y ajustes del sistema</p>
               </div>
 
@@ -794,7 +803,7 @@ export default function Dashboard() {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                           <div>
-                            <p className="font-medium text-slate-900">Modo Oscuro</p>
+                            <p className="font-medium text-slate-900 dark:text-white">Modo Oscuro</p>
                             <p className="text-sm text-slate-600">Cambiar entre tema claro y oscuro</p>
                           </div>
                           <button
@@ -824,9 +833,9 @@ export default function Dashboard() {
                             <SelectTrigger className="mt-2">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="bg-white">
-                              <SelectItem value="es" className="cursor-pointer hover:bg-slate-100">Español</SelectItem>
-                              <SelectItem value="en" className="cursor-pointer hover:bg-slate-100">English</SelectItem>
+                            <SelectContent className="bg-white dark:bg-slate-800">
+                              <SelectItem value="es" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Español</SelectItem>
+                              <SelectItem value="en" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">English</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -836,10 +845,10 @@ export default function Dashboard() {
                             <SelectTrigger className="mt-2">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="bg-white">
-                              <SelectItem value="dd/mm/yyyy" className="cursor-pointer hover:bg-slate-100">DD/MM/YYYY</SelectItem>
-                              <SelectItem value="mm/dd/yyyy" className="cursor-pointer hover:bg-slate-100">MM/DD/YYYY</SelectItem>
-                              <SelectItem value="yyyy-mm-dd" className="cursor-pointer hover:bg-slate-100">YYYY-MM-DD</SelectItem>
+                            <SelectContent className="bg-white dark:bg-slate-800">
+                              <SelectItem value="dd/mm/yyyy" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">DD/MM/YYYY</SelectItem>
+                              <SelectItem value="mm/dd/yyyy" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">MM/DD/YYYY</SelectItem>
+                              <SelectItem value="yyyy-mm-dd" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">YYYY-MM-DD</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -861,7 +870,7 @@ export default function Dashboard() {
                         ].map((item, idx) => (
                           <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                             <div>
-                              <p className="font-medium text-slate-900">{item.label}</p>
+                              <p className="font-medium text-slate-900 dark:text-white">{item.label}</p>
                               <p className="text-sm text-slate-600">{item.description}</p>
                             </div>
                             <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-blue-600">
@@ -890,19 +899,19 @@ export default function Dashboard() {
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <p className="text-slate-600">Frontend</p>
-                          <p className="font-medium text-slate-900">React 19.1 + TypeScript</p>
+                          <p className="font-medium text-slate-900 dark:text-white">React 19.1 + TypeScript</p>
                         </div>
                         <div>
                           <p className="text-slate-600">Backend</p>
-                          <p className="font-medium text-slate-900">Rust + Tauri 2.x</p>
+                          <p className="font-medium text-slate-900 dark:text-white">Rust + Tauri 2.x</p>
                         </div>
                         <div>
                           <p className="text-slate-600">Base de Datos</p>
-                          <p className="font-medium text-slate-900">SQLite + PostgreSQL</p>
+                          <p className="font-medium text-slate-900 dark:text-white">SQLite + PostgreSQL</p>
                         </div>
                         <div>
                           <p className="text-slate-600">Framework UI</p>
-                          <p className="font-medium text-slate-900">Tailwind CSS + shadcn/ui</p>
+                          <p className="font-medium text-slate-900 dark:text-white">Tailwind CSS + shadcn/ui</p>
                         </div>
                       </div>
                     </div>
@@ -965,11 +974,11 @@ export default function Dashboard() {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="InfoGov" className="cursor-pointer hover:bg-slate-100">InfoGov</SelectItem>
-                    <SelectItem value="Gde" className="cursor-pointer hover:bg-slate-100">GDE</SelectItem>
-                    <SelectItem value="Interno" className="cursor-pointer hover:bg-slate-100">Interno</SelectItem>
-                    <SelectItem value="Otro" className="cursor-pointer hover:bg-slate-100">Otro</SelectItem>
+                  <SelectContent className="bg-white dark:bg-slate-800">
+                    <SelectItem value="InfoGov" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">InfoGov</SelectItem>
+                    <SelectItem value="Gde" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">GDE</SelectItem>
+                    <SelectItem value="Interno" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Interno</SelectItem>
+                    <SelectItem value="Otro" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Otro</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -982,11 +991,11 @@ export default function Dashboard() {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="Baja" className="cursor-pointer hover:bg-slate-100">Baja</SelectItem>
-                    <SelectItem value="Media" className="cursor-pointer hover:bg-slate-100">Media</SelectItem>
-                    <SelectItem value="Alta" className="cursor-pointer hover:bg-slate-100">Alta</SelectItem>
-                    <SelectItem value="Urgente" className="cursor-pointer hover:bg-slate-100">Urgente</SelectItem>
+                  <SelectContent className="bg-white dark:bg-slate-800">
+                    <SelectItem value="Baja" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Baja</SelectItem>
+                    <SelectItem value="Media" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Media</SelectItem>
+                    <SelectItem value="Alta" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Alta</SelectItem>
+                    <SelectItem value="Urgente" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Urgente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

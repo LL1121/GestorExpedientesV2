@@ -1,24 +1,15 @@
 // Módulos principales
-mod db;
-mod error;
-mod models;
-mod repositories;
-mod commands;
+pub mod db;
+pub mod error;
+pub mod models;
+pub mod repositories;
+pub mod commands;
 
 // Re-exports
-pub use db::{DatabaseManager, DatabaseConfig, config_from_env};
+pub use db::{DatabasePool, init_databases};
 pub use error::{AppError, AppResult};
 
-use once_cell::sync::OnceCell;
-use std::sync::Arc;
-
-// Instancia global del DatabaseManager (singleton)
-static DB_MANAGER: OnceCell<Arc<DatabaseManager>> = OnceCell::new();
-
-/// Obtiene la instancia global del DatabaseManager
-pub fn get_db() -> &'static Arc<DatabaseManager> {
-    DB_MANAGER.get().expect("DatabaseManager no inicializado")
-}
+use std::env;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -27,13 +18,12 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-async fn get_db_status() -> Result<String, String> {
-    let db = get_db();
-    let postgres_connected = db.is_postgres_connected().await;
+async fn get_db_status(pools: tauri::State<'_, DatabasePool>) -> Result<String, String> {
+    let has_postgres = pools.has_postgres();
     
     Ok(format!(
         "SQLite: ✅ Conectado | PostgreSQL: {}",
-        if postgres_connected { "✅ Conectado" } else { "⚠️ Desconectado (modo offline)" }
+        if has_postgres { "✅ Conectado" } else { "⚠️ Desconectado (modo offline)" }
     ))
 }
 
@@ -45,31 +35,35 @@ pub fn run() {
         .build()
         .unwrap()
         .block_on(async {
-            // Inicializar el DatabaseManager
-            let config = config_from_env();
-            let db_manager = DatabaseManager::new(config)
+            // Obtener rutas de bases de datos del entorno
+            let sqlite_path = env::var("SQLITE_PATH").unwrap_or_else(|_| "app.db".to_string());
+            let postgres_url = env::var("DATABASE_URL").ok();
+
+            // Inicializar pools de bases de datos
+            let pools = DatabasePool::new(&sqlite_path, postgres_url.as_deref())
                 .await
-                .expect("Error al inicializar DatabaseManager");
-            
-            DB_MANAGER.set(Arc::new(db_manager))
-                .expect("Error al configurar DatabaseManager global");
+                .expect("Error al inicializar pools de bases de datos");
 
-            println!("🚀 DatabaseManager inicializado correctamente");
+            // Ejecutar migraciones
+            init_databases(&pools)
+                .await
+                .expect("Error al ejecutar migraciones");
 
-            // Obtener referencia al DatabaseManager para pasarlo como estado
-            let db_manager = DB_MANAGER.get()
-                .expect("DatabaseManager no inicializado")
-                .clone();
+            println!("🚀 Base de datos inicializada correctamente");
+            println!("📍 SQLite: {}", sqlite_path);
+            if let Some(url) = &postgres_url {
+                println!("📍 PostgreSQL: {}", url);
+            }
 
             // Iniciar Tauri
             tauri::Builder::default()
                 .plugin(tauri_plugin_opener::init())
-                .manage(db_manager)
+                .manage(pools)
                 .invoke_handler(tauri::generate_handler![
                     greet,
                     get_db_status,
                     // Commands de Expedientes
-                    commands::get_expedientes,
+                    commands::obtener_expedientes,
                     commands::get_expediente,
                     commands::create_expediente,
                     commands::update_expediente,
