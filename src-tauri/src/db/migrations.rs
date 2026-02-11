@@ -93,6 +93,32 @@ pub async fn run_sqlite_migrations(pool: &SqlitePool) -> Result<()> {
         .await
         .ok();
 
+    // Campos para Órdenes de Compra
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN oc_señor TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN oc_domicilio TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN oc_cuit TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN oc_descripcion_zona TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN oc_forma_pago TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN oc_plazo_entrega TEXT")
+        .execute(pool)
+        .await
+        .ok();
+
     // Normalizar valores nulos para columnas obligatorias
     sqlx::query("UPDATE expedientes SET area_responsable = 'Sin definir' WHERE area_responsable IS NULL")
         .execute(pool)

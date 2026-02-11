@@ -43,6 +43,19 @@ pub struct Expediente {
     /// Observaciones
     pub observaciones: Option<String>,
     
+    /// Campos para Órdenes de Compra (solo si es expediente de pago)
+    /// Proveedor/Beneficiario
+    pub oc_señor: Option<String>,
+    pub oc_domicilio: Option<String>,
+    pub oc_cuit: Option<String>,
+    
+    /// Descripción de zona
+    pub oc_descripcion_zona: Option<String>,
+    
+    /// Datos de forma de pago y plazo
+    pub oc_forma_pago: Option<String>,
+    pub oc_plazo_entrega: Option<String>,
+    
     /// Metadatos
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -59,6 +72,8 @@ pub enum TipoExpediente {
     Gde,
     #[sqlx(rename = "INTERNO")]
     Interno,
+    #[sqlx(rename = "PAGO")]
+    Pago,
     #[sqlx(rename = "OTRO")]
     Otro,
 }
@@ -112,6 +127,13 @@ pub struct CreateExpediente {
     pub fecha_inicio: DateTime<Utc>,
     pub fecha_vencimiento: Option<DateTime<Utc>>,
     pub agente_responsable_id: Option<String>,
+    // Campos específicos para expedientes de tipo "Pago"
+    pub oc_señor: Option<String>,
+    pub oc_domicilio: Option<String>,
+    pub oc_cuit: Option<String>,
+    pub oc_descripcion_zona: Option<String>,
+    pub oc_forma_pago: Option<String>,
+    pub oc_plazo_entrega: Option<String>,
 }
 
 /// Datos para actualizar un expediente

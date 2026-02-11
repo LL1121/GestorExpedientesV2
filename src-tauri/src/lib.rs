@@ -4,6 +4,7 @@ pub mod error;
 pub mod models;
 pub mod repositories;
 pub mod commands;
+pub mod utils;
 
 // Re-exports
 pub use db::{DatabasePool, init_databases};
@@ -78,6 +79,7 @@ pub fn run() {
                     commands::preparar_nueva_oc,
                     commands::crear_orden_compra,
                     commands::obtener_ordenes_compra,
+                    commands::generar_pdf,
                     // Commands de Vehículos
                     commands::get_all_vehiculos,
                     commands::get_vehiculo,

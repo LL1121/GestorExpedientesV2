@@ -13,6 +13,13 @@ export interface ExpedienteOCData {
   nro_gde?: string | null;
   caratula?: string | null;
   resolucion_nro?: string | null;
+  // Campos específicos para OC
+  oc_señor?: string | null;
+  oc_domicilio?: string | null;
+  oc_cuit?: string | null;
+  oc_descripcion_zona?: string | null;
+  oc_forma_pago?: string | null;
+  oc_plazo_entrega?: string | null;
 }
 
 export interface NuevaOCPreparada {

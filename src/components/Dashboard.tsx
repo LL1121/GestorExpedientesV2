@@ -58,10 +58,11 @@ import { OrdenCompraService } from "@/services/orden_compra.service";
 import Movilidades from "@/components/Movilidades";
 import Personal from "@/components/Personal";
 import FormularioOC from "@/components/FormularioOC";
+import PreviewOC from "@/components/PreviewOC";
 import ConfigTopes from "@/components/ConfigTopes";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
-type ActiveView = "dashboard" | "archivo" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc";
+type ActiveView = "dashboard" | "archivo" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc" | "preview-oc";
 
 export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -76,8 +77,10 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [ocDraft, setOcDraft] = useState<NuevaOCPreparada | null>(null);
+  const [ocRenglones, setOcRenglones] = useState<any[]>([]);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [pdfGenerationStatus, setPdfGenerationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [newExpediente, setNewExpediente] = useState<Partial<CreateExpedienteInput> & { estado?: EstadoExpediente }>({
-    tipo: "InfoGov",
     prioridad: "Media",
     fecha_inicio: new Date().toISOString().split('T')[0],
   });
@@ -150,7 +153,7 @@ export default function Dashboard() {
 
   const handleCreateExpediente = async () => {
     try {
-      if (!newExpediente.numero || !newExpediente.año || !newExpediente.asunto || !newExpediente.area_responsable) {
+      if (!newExpediente.numero || !newExpediente.año || !newExpediente.tipo || !newExpediente.asunto || !newExpediente.area_responsable) {
         alert("Por favor completa los campos requeridos");
         return;
       }
@@ -158,7 +161,6 @@ export default function Dashboard() {
       await ExpedienteService.create(newExpediente as CreateExpedienteInput);
       setIsAddDialogOpen(false);
       setNewExpediente({
-        tipo: "InfoGov",
         prioridad: "Media",
         fecha_inicio: new Date().toISOString().split('T')[0],
       });
@@ -244,14 +246,14 @@ export default function Dashboard() {
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
       {error && (
-        <div className="fixed top-4 right-4 z-50 max-w-xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-lg">
+        <div className="fixed top-4 right-4 z-50 max-w-2xl max-h-96 overflow-y-auto rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-lg">
           <div className="flex items-start gap-2">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <div className="space-y-1">
+            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+            <div className="space-y-1 flex-1 min-w-0">
               <p className="font-semibold">Error</p>
-              <p className="break-words">{error}</p>
+              <pre className="break-words whitespace-pre-wrap font-mono text-xs">{error}</pre>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setError(null)}>
+            <Button variant="ghost" size="sm" onClick={() => setError(null)} className="flex-shrink-0">
               Cerrar
             </Button>
           </div>
@@ -829,7 +831,90 @@ export default function Dashboard() {
               data={ocDraft}
               onBack={() => {
                 setOcDraft(null);
+                setOcRenglones([]);
                 setActiveView("dashboard");
+              }}
+              onPreview={(renglones) => {
+                setOcRenglones(renglones);
+                setActiveView("preview-oc");
+              }}
+            />
+          )}
+
+          {/* Vista: Preview OC */}
+          {activeView === "preview-oc" && ocDraft && (
+            <PreviewOC
+              data={ocDraft}
+              renglones={ocRenglones}
+              isGenerating={isGeneratingPDF}
+              generationStatus={pdfGenerationStatus}
+              onBack={() => {
+                setActiveView("formulario-oc");
+                setPdfGenerationStatus('idle');
+              }}
+              onGeneratePDF={async (editedData) => {
+                try {
+                  if (!ocDraft) return;
+                  if (isGeneratingPDF) return;
+                  setIsGeneratingPDF(true);
+                  setPdfGenerationStatus('loading');
+                  
+                  const pdfRequest = {
+                    numero_oc: editedData.numeroOC,
+                    pedido_nro: editedData.pedidoNro,
+                    destino: editedData.destino,
+                    fecha: editedData.fecha,
+                    expediente_numero: ocDraft.expediente.numero,
+                    expediente_año: ocDraft.expediente.año,
+                    nro_gde: ocDraft.expediente.nro_gde,
+                    nro_infogov: ocDraft.expediente.nro_infogov,
+                    resolucion_nro: ocDraft.expediente.resolucion_nro,
+                    tipo_contratacion: ocDraft.tipo_contratacion,
+                    señor: editedData.señor,
+                    domicilio: editedData.domicilio,
+                    cuit: editedData.cuit,
+                    descripcion_zona: editedData.descripcionZona,
+                    renglones: editedData.renglones.map((r: any, idx: number) => ({
+                      numero: idx + 1,
+                      cantidad: r.cantidad,
+                      concepto: r.detalle,
+                      marca: r.marca || null,
+                      valor_unitario: r.valor_unitario,
+                      total: r.cantidad * r.valor_unitario,
+                    })),
+                    subtotal: editedData.subtotal,
+                    iva: editedData.iva,
+                    total: editedData.total,
+                    total_en_letras: ocDraft.total_en_letras,
+                    forma_pago: editedData.formaPago,
+                    plazo_entrega: editedData.plazoEntrega,
+                    es_iva_inscripto: ocDraft.es_iva_inscripto,
+                  };
+                  
+                  const pdfPath = await invoke('generar_pdf', { data: pdfRequest });
+                  setPdfGenerationStatus('success');
+                  setError(`✓ PDF generado: ${pdfPath}`);
+                  
+                  // Limpiar y volver al dashboard después de 3 segundos
+                  setTimeout(() => {
+                    setActiveView("dashboard");
+                    setOcDraft(null);
+                    setOcRenglones([]);
+                    setPdfGenerationStatus('idle');
+                  }, 3000);
+                } catch (err) {
+                  console.error("Error al generar PDF:", err);
+                  setPdfGenerationStatus('error');
+                  const errorMsg = formatError(err);
+                  setError(`Error al generar PDF: ${errorMsg}`);
+                  
+                  // Volver a idle después de 3 segundos en caso de error
+                  setTimeout(() => {
+                    setPdfGenerationStatus('idle');
+                  }, 3000);
+                } finally {
+                  setIsGeneratingPDF(false);
+                }
               }}
             />
           )}
@@ -1051,12 +1136,13 @@ export default function Dashboard() {
                   onValueChange={(value) => setNewExpediente({ ...newExpediente, tipo: value as TipoExpediente })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Seleccionar tipo..." />
                   </SelectTrigger>
                   <SelectContent className="bg-white dark:bg-slate-800">
                     <SelectItem value="InfoGov" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">InfoGov</SelectItem>
                     <SelectItem value="Gde" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">GDE</SelectItem>
                     <SelectItem value="Interno" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Interno</SelectItem>
+                    <SelectItem value="Pago" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Pago</SelectItem>
                     <SelectItem value="Otro" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Otro</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1124,6 +1210,80 @@ export default function Dashboard() {
                 />
               </div>
             </div>
+
+            {/* Campos específicos para expedientes de tipo "Pago" */}
+            {newExpediente.tipo === "Pago" && (
+              <div className="space-y-4 border-t pt-4 mt-4">
+                <h4 className="text-sm font-semibold text-slate-700">Datos para Orden de Compra</h4>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="oc_señor">Señor/es</Label>
+                  <Input
+                    id="oc_señor"
+                    placeholder="Nombre del proveedor o destinatario"
+                    className="bg-slate-50"
+                    value={newExpediente.oc_señor || ""}
+                    onChange={(e) => setNewExpediente({ ...newExpediente, oc_señor: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="oc_domicilio">Domicilio</Label>
+                  <Input
+                    id="oc_domicilio"
+                    placeholder="Dirección del proveedor"
+                    className="bg-slate-50"
+                    value={newExpediente.oc_domicilio || ""}
+                    onChange={(e) => setNewExpediente({ ...newExpediente, oc_domicilio: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="oc_cuit">CUIT</Label>
+                  <Input
+                    id="oc_cuit"
+                    placeholder="CUIT del proveedor"
+                    className="bg-slate-50"
+                    value={newExpediente.oc_cuit || ""}
+                    onChange={(e) => setNewExpediente({ ...newExpediente, oc_cuit: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="oc_descripcion_zona">Descripción de Zona</Label>
+                  <Input
+                    id="oc_descripcion_zona"
+                    placeholder="Zona de entrega o aplicación"
+                    className="bg-slate-50"
+                    value={newExpediente.oc_descripcion_zona || ""}
+                    onChange={(e) => setNewExpediente({ ...newExpediente, oc_descripcion_zona: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="oc_forma_pago">Forma de Pago</Label>
+                    <Input
+                      id="oc_forma_pago"
+                      placeholder="Ej: Contado, 30 días"
+                      className="bg-slate-50"
+                      value={newExpediente.oc_forma_pago || ""}
+                      onChange={(e) => setNewExpediente({ ...newExpediente, oc_forma_pago: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="oc_plazo_entrega">Plazo de Entrega</Label>
+                    <Input
+                      id="oc_plazo_entrega"
+                      placeholder="Ej: 15 días"
+                      className="bg-slate-50"
+                      value={newExpediente.oc_plazo_entrega || ""}
+                      onChange={(e) => setNewExpediente({ ...newExpediente, oc_plazo_entrega: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -1205,21 +1365,69 @@ export default function Dashboard() {
                   <p className="text-sm mt-1">{formatDate(selectedRecord.updated_at)}</p>
                 </div>
               </div>
+
+              {/* Campos específicos para expedientes de tipo Pago */}
+              {selectedRecord.tipo === "Pago" && (
+                <div className="space-y-4 border-t pt-4 mt-4">
+                  <h4 className="text-sm font-semibold text-slate-700">Datos de Orden de Compra</h4>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedRecord.oc_señor && (
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">Señor/es</p>
+                        <p className="text-sm mt-1">{selectedRecord.oc_señor}</p>
+                      </div>
+                    )}
+                    {selectedRecord.oc_domicilio && (
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">Domicilio</p>
+                        <p className="text-sm mt-1">{selectedRecord.oc_domicilio}</p>
+                      </div>
+                    )}
+                    {selectedRecord.oc_cuit && (
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">CUIT</p>
+                        <p className="text-sm mt-1">{selectedRecord.oc_cuit}</p>
+                      </div>
+                    )}
+                    {selectedRecord.oc_descripcion_zona && (
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">Zona</p>
+                        <p className="text-sm mt-1">{selectedRecord.oc_descripcion_zona}</p>
+                      </div>
+                    )}
+                    {selectedRecord.oc_forma_pago && (
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">Forma de Pago</p>
+                        <p className="text-sm mt-1">{selectedRecord.oc_forma_pago}</p>
+                      </div>
+                    )}
+                    {selectedRecord.oc_plazo_entrega && (
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">Plazo de Entrega</p>
+                        <p className="text-sm mt-1">{selectedRecord.oc_plazo_entrega}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           <DialogFooter>
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (selectedRecord) {
-                    handleGenerarOC(selectedRecord);
-                  }
-                }}
-              >
-                Generar Orden de Compra
-              </Button>
+              {selectedRecord?.tipo === "Pago" && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (selectedRecord) {
+                      handleGenerarOC(selectedRecord);
+                    }
+                  }}
+                >
+                  Generar Orden de Compra
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setSelectedRecord(null)}>
                 Cerrar
               </Button>

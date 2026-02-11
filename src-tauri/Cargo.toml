@@ -32,6 +32,13 @@ uuid = { version = "1.6", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1.0"
 anyhow = "1.0"
+dirs = "5.0"
+
+# PDF generation
+printpdf = "0.7"
+
+# Excel manipulation
+umya-spreadsheet = "0.4"
 
 # Async y runtime
 async-trait = "0.1"

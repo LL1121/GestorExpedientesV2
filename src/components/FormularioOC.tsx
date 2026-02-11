@@ -12,11 +12,12 @@ import { OrdenCompraService } from "@/services/orden_compra.service";
 interface FormularioOCProps {
   data: NuevaOCPreparada;
   onBack: () => void;
+  onPreview?: (renglones: CreateRenglon[]) => void;
 }
 
 const formasPago = ["Transferencia", "Efectivo", "Cheque", "Tarjeta"];
 
-export default function FormularioOC({ data, onBack }: FormularioOCProps) {
+export default function FormularioOC({ data, onBack, onPreview }: FormularioOCProps) {
   const [destino, setDestino] = useState(data.destino ?? "ZONA RIEGO MALARGUE");
   const [formaPago, setFormaPago] = useState(data.forma_pago ?? "Transferencia");
   const [plazoEntrega, setPlazoEntrega] = useState(data.plazo_entrega ?? "-");
@@ -195,6 +196,12 @@ export default function FormularioOC({ data, onBack }: FormularioOCProps) {
           <Button className="w-full" onClick={handleGuardar} disabled={saving}>
             {saving ? "Guardando..." : "Guardar Orden de Compra"}
           </Button>
+          
+          {onPreview && (
+            <Button className="w-full mt-2" variant="secondary" onClick={() => onPreview(renglones)}>
+              Ver Previa / Generar PDF
+            </Button>
+          )}
         </div>
       </div>
     </div>

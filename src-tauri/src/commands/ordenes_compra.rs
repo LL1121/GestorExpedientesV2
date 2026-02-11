@@ -1,7 +1,8 @@
 // Comandos Tauri para Órdenes de Compra
 use crate::db::DatabasePool;
 use crate::models::orden_compra::*;
-use chrono::Datelike;
+use crate::utils::excel_generator::{ejecutar_conversion_excel_a_pdf_con_datos, OCExcelData, OCRenglon};
+use chrono::{Datelike, NaiveDate};
 use serde::Serialize;
 use sqlx::{Row, SqlitePool, PgPool};
 use uuid::Uuid;
@@ -196,7 +197,7 @@ async fn update_tope_sqlite(pool: &SqlitePool, data: &UpdateConfigTope) -> Resul
     Ok(tope)
 }
 
-#[derive(Debug, Serialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 pub struct ExpedienteOCData {
     pub id: String,
     pub numero: String,
@@ -206,6 +207,13 @@ pub struct ExpedienteOCData {
     pub nro_gde: Option<String>,
     pub caratula: Option<String>,
     pub resolucion_nro: Option<String>,
+    // Campos específicos para OC
+    pub oc_señor: Option<String>,
+    pub oc_domicilio: Option<String>,
+    pub oc_cuit: Option<String>,
+    pub oc_descripcion_zona: Option<String>,
+    pub oc_forma_pago: Option<String>,
+    pub oc_plazo_entrega: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -261,7 +269,8 @@ pub async fn preparar_nueva_oc(
 async fn preparar_nueva_oc_postgres(pool: &PgPool, expediente_id: &str) -> Result<NuevaOCPreparada, sqlx::Error> {
     let expediente = sqlx::query_as::<_, ExpedienteOCData>(
         r#"
-        SELECT id::text, numero, año, asunto, nro_infogov, nro_gde, caratula, resolucion_nro
+        SELECT id::text, numero, año, asunto, nro_infogov, nro_gde, caratula, resolucion_nro,
+               oc_señor, oc_domicilio, oc_cuit, oc_descripcion_zona, oc_forma_pago, oc_plazo_entrega
         FROM expedientes
         WHERE id = $1::uuid
         "#
@@ -296,13 +305,13 @@ async fn preparar_nueva_oc_postgres(pool: &PgPool, expediente_id: &str) -> Resul
     let total_en_letras = monto_a_letras(total);
 
     Ok(NuevaOCPreparada {
-        expediente,
+        expediente: expediente.clone(),
         numero_oc,
         pedido_nro,
         fecha: chrono::Utc::now().format("%Y-%m-%d").to_string(),
-        destino: "ZONA RIEGO MALARGUE".to_string(),
-        forma_pago: "Transferencia".to_string(),
-        plazo_entrega: "-".to_string(),
+        destino: expediente.oc_descripcion_zona.clone().unwrap_or_else(|| "ZONA RIEGO MALARGUE".to_string()),
+        forma_pago: expediente.oc_forma_pago.clone().unwrap_or_else(|| "Transferencia".to_string()),
+        plazo_entrega: expediente.oc_plazo_entrega.clone().unwrap_or_else(|| "-".to_string()),
         es_iva_inscripto: true,
         tipo_contratacion,
         subtotal,
@@ -315,7 +324,8 @@ async fn preparar_nueva_oc_postgres(pool: &PgPool, expediente_id: &str) -> Resul
 async fn preparar_nueva_oc_sqlite(pool: &SqlitePool, expediente_id: &str) -> Result<NuevaOCPreparada, sqlx::Error> {
     let expediente = sqlx::query_as::<_, ExpedienteOCData>(
         r#"
-        SELECT id, numero, año, asunto, nro_infogov, nro_gde, caratula, resolucion_nro
+        SELECT id, numero, año, asunto, nro_infogov, nro_gde, caratula, resolucion_nro,
+               oc_señor, oc_domicilio, oc_cuit, oc_descripcion_zona, oc_forma_pago, oc_plazo_entrega
         FROM expedientes
         WHERE id = ?
         "#
@@ -350,13 +360,13 @@ async fn preparar_nueva_oc_sqlite(pool: &SqlitePool, expediente_id: &str) -> Res
     let total_en_letras = monto_a_letras(total);
 
     Ok(NuevaOCPreparada {
-        expediente,
+        expediente: expediente.clone(),
         numero_oc,
         pedido_nro,
         fecha: chrono::Utc::now().format("%Y-%m-%d").to_string(),
-        destino: "ZONA RIEGO MALARGUE".to_string(),
-        forma_pago: "Transferencia".to_string(),
-        plazo_entrega: "-".to_string(),
+        destino: expediente.oc_descripcion_zona.clone().unwrap_or_else(|| "ZONA RIEGO MALARGUE".to_string()),
+        forma_pago: expediente.oc_forma_pago.clone().unwrap_or_else(|| "Transferencia".to_string()),
+        plazo_entrega: expediente.oc_plazo_entrega.clone().unwrap_or_else(|| "-".to_string()),
         es_iva_inscripto: true,
         tipo_contratacion,
         subtotal,
@@ -651,3 +661,228 @@ async fn get_oc_sqlite(pool: &SqlitePool) -> Result<Vec<OrdenCompra>, sqlx::Erro
 
     Ok(ordenes)
 }
+
+/// Generar PDF de Orden de Compra
+#[derive(serde::Deserialize)]
+pub struct GenerarPDFOCRequest {
+    pub numero_oc: String,
+    pub pedido_nro: i32,
+    pub destino: String,
+    pub fecha: String,
+    pub expediente_numero: String,
+    pub expediente_año: i32,
+    pub nro_gde: Option<String>,
+    pub nro_infogov: Option<String>,
+    pub resolucion_nro: Option<String>,
+    pub tipo_contratacion: String,
+    pub señor: String,
+    pub domicilio: String,
+    pub cuit: String,
+    pub descripcion_zona: String,
+    pub renglones: Vec<PDFRenglon>,
+    pub subtotal: f64,
+    pub iva: f64,
+    pub total: f64,
+    pub total_en_letras: String,
+    pub forma_pago: String,
+    pub plazo_entrega: String,
+    pub es_iva_inscripto: bool,
+}
+
+#[derive(serde::Deserialize)]
+pub struct PDFRenglon {
+    pub numero: usize,
+    pub cantidad: f64,
+    pub concepto: String,
+    pub marca: Option<String>,
+    pub valor_unitario: f64,
+    pub total: f64,
+}
+
+#[tauri::command]
+pub async fn generar_pdf(data: GenerarPDFOCRequest) -> Result<String, String> {
+    println!("📄 Generando PDF para OC {}", data.numero_oc);
+    
+    // Obtener ruta de la plantilla Excel
+    let exe_dir = std::env::current_exe()
+        .map_err(|e| format!("Error al obtener directorio ejecutable: {}", e))?;
+    let exe_parent = exe_dir.parent()
+        .ok_or("No se pudo obtener directorio padre del ejecutable")?;
+    
+    // Buscar plantilla en resources
+    let template_path = exe_parent.join("resources/templates/MODELO_ORDEN_DE_COMPRA.xlsx");
+    
+    if !template_path.exists() {
+        return Err(format!("Plantilla Excel no encontrada en: {:?}", template_path));
+    }
+    
+    // Construir rutas de salida
+    let home_dir = dirs::home_dir()
+        .ok_or("No se pudo obtener el directorio home")?;
+    let docs_dir = home_dir.join("Documents");
+    std::fs::create_dir_all(&docs_dir)
+        .map_err(|e| format!("Error al crear directorio: {}", e))?;
+    
+    let safe_oc_number = data.numero_oc.replace("/", "-");
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| format!("Error al obtener timestamp: {}", e))?
+        .as_secs();
+    let excel_filename = format!("OC-{}-temp-{}.xlsx", safe_oc_number, timestamp);
+    let pdf_filename = format!("OC-{}-{}.pdf", safe_oc_number, timestamp);
+    
+    let temp_excel_path = docs_dir.join(&excel_filename);
+    let pdf_path = docs_dir.join(&pdf_filename);
+    
+    // Crear datos Excel
+    let destino_limpio = data.destino
+        .replace("Zona Riego", "")
+        .replace("ZONA RIEGO", "")
+        .trim()
+        .to_string();
+    
+    // Formatear fecha de ISO (2026-02-11) a español (11 de febrero de 2026)
+    let fecha_formateada = formatear_fecha_español(&data.fecha)
+        .unwrap_or_else(|_| data.fecha.clone());
+    
+    // Formatear expediente completo con GDE/InfoGov si existe
+    let expediente_completo = formatear_expediente_completo(
+        &data.expediente_numero, 
+        data.expediente_año,
+        data.nro_gde.as_deref(),
+        data.nro_infogov.as_deref()
+    );
+    
+    let excel_data = OCExcelData {
+        numero_oc: data.numero_oc.clone(),
+        pedido_nro: data.pedido_nro,
+        destino: destino_limpio,
+        fecha: fecha_formateada,
+        expediente_numero: expediente_completo,
+        expediente_año: data.expediente_año,
+        resolucion_nro: data.resolucion_nro.clone(),
+        tipo_contratacion: data.tipo_contratacion.clone(),
+        señor: data.señor.clone(),
+        domicilio: data.domicilio.clone(),
+        cuit: data.cuit.clone(),
+        descripcion_zona: data.descripcion_zona.clone(),
+        renglones: data.renglones.iter().map(|r| OCRenglon {
+            numero: r.numero,
+            cantidad: r.cantidad,
+            concepto: r.concepto.clone(),
+            marca: r.marca.clone(),
+            valor_unitario: r.valor_unitario,
+            total: r.total,
+        }).collect(),
+        subtotal: data.subtotal,
+        iva: data.iva,
+        total: data.total,
+        total_en_letras: data.total_en_letras.clone(),
+        forma_pago: data.forma_pago.clone(),
+        plazo_entrega: data.plazo_entrega.clone(),
+        es_iva_inscripto: data.es_iva_inscripto,
+    };
+    
+    // Copiar plantilla sin modificar
+    std::fs::copy(&template_path, &temp_excel_path)
+        .map_err(|e| format!("Error al copiar plantilla: {}", e))?;
+    
+    println!("✓ Plantilla copiada: {:?}", temp_excel_path);
+    
+    // Convertir Excel a PDF usando PowerShell (que también escribirá los datos)
+    ejecutar_conversion_excel_a_pdf_con_datos(
+        temp_excel_path.to_str().ok_or("Ruta de Excel inválida")?,
+        pdf_path.to_str().ok_or("Ruta de PDF inválida")?,
+        excel_data,
+    )
+    .map_err(|e| format!("Error al convertir a PDF: {}", e))?;
+
+    let mut final_pdf_path = pdf_path.clone();
+    let mut found = false;
+    for _ in 0..10 {
+        if final_pdf_path.exists() {
+            found = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+
+    if !found {
+        if let Some(stem) = pdf_path.file_stem().and_then(|s| s.to_str()) {
+            let prefix = match stem.rsplit_once('-') {
+                Some((base, _)) => format!("{}-", base),
+                None => stem.to_string(),
+            };
+            let mut candidates: Vec<(std::path::PathBuf, std::time::SystemTime)> = Vec::new();
+            if let Ok(entries) = std::fs::read_dir(&docs_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("pdf")).unwrap_or(false) {
+                        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                            if name.starts_with(&prefix) {
+                                if let Ok(modified) = entry.metadata().and_then(|m| m.modified()) {
+                                    candidates.push((path, modified));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Some((path, _)) = candidates.into_iter().max_by_key(|(_, m)| *m) {
+                final_pdf_path = path;
+                found = true;
+            }
+        }
+    }
+
+    if !found {
+        return Err("El PDF no fue generado correctamente".to_string());
+    }
+
+    println!("✓ PDF generado exitosamente en: {:?}", final_pdf_path);
+
+    let path_str = final_pdf_path.to_str()
+        .ok_or("No se pudo convertir la ruta a string")?
+        .to_string();
+
+    println!("✓ PDF generado exitosamente en: {}", path_str);
+    Ok(path_str)
+}
+
+/// Formatear fecha de ISO (2026-02-11) a español (11 de febrero de 2026)
+fn formatear_fecha_español(fecha_iso: &str) -> Result<String, String> {
+    let fecha = NaiveDate::parse_from_str(fecha_iso, "%Y-%m-%d")
+        .map_err(|e| format!("Error al parsear fecha: {}", e))?;
+    
+    let meses = [
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    ];
+    
+    let mes = meses.get(fecha.month0() as usize)
+        .ok_or("Mes inválido")?;
+    
+    Ok(format!("Mendoza, {} de {} de {}", fecha.day(), mes, fecha.year()))
+}
+
+/// Formatear expediente completo: numero-?-año (nro_gde o nro_infogov)
+fn formatear_expediente_completo(
+    numero: &str, 
+    año: i32, 
+    nro_gde: Option<&str>, 
+    nro_infogov: Option<&str>
+) -> String {
+    // Formato base: numero-?-año
+    let formato_base = format!("{}-?-{}", numero, año % 100); // año en 2 dígitos
+    
+    // Si hay GDE o InfoGov, agregarlo
+    if let Some(gde) = nro_gde {
+        format!("{} ({})", formato_base, gde)
+    } else if let Some(infogov) = nro_infogov {
+        format!("{} ({})", formato_base, infogov)
+    } else {
+        formato_base
+    }
+}
+

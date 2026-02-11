@@ -50,8 +50,9 @@ impl ExpedienteRepository {
                 id, numero, año, tipo, nro_infogov, nro_gde, caratula, resolucion_nro,
                 asunto, descripcion, area_responsable, prioridad, estado,
                 fecha_inicio, fecha_vencimiento, agente_responsable_id,
+                oc_señor, oc_domicilio, oc_cuit, oc_descripcion_zona, oc_forma_pago, oc_plazo_entrega,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#
         )
         .bind(&id)
@@ -70,6 +71,12 @@ impl ExpedienteRepository {
         .bind(data.fecha_inicio)
         .bind(data.fecha_vencimiento)
         .bind(data.agente_responsable_id)
+        .bind(&data.oc_señor)
+        .bind(&data.oc_domicilio)
+        .bind(&data.oc_cuit)
+        .bind(&data.oc_descripcion_zona)
+        .bind(&data.oc_forma_pago)
+        .bind(&data.oc_plazo_entrega)
         .bind(now)
         .bind(now)
         .execute(pool)
