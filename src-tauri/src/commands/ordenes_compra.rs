@@ -1,7 +1,7 @@
 // Comandos Tauri para Órdenes de Compra
 use crate::db::DatabasePool;
 use crate::models::orden_compra::*;
-use crate::utils::excel_generator::{ejecutar_conversion_excel_a_pdf_con_datos, OCExcelData, OCRenglon};
+use crate::utils::excel_generator::{ejecutar_conversion_excel_a_pdf_con_datos, ejecutar_llenado_excel_con_datos, OCExcelData, OCRenglon};
 use chrono::{Datelike, NaiveDate};
 use serde::Serialize;
 use sqlx::{Row, SqlitePool, PgPool};
@@ -847,6 +847,109 @@ pub async fn generar_pdf(data: GenerarPDFOCRequest) -> Result<String, String> {
         .to_string();
 
     println!("✓ PDF generado exitosamente en: {}", path_str);
+    Ok(path_str)
+}
+
+#[tauri::command]
+pub async fn generar_excel(data: GenerarPDFOCRequest) -> Result<String, String> {
+    println!("📄 Generando Excel para OC {}", data.numero_oc);
+    
+    // Obtener ruta de la plantilla Excel
+    let exe_dir = std::env::current_exe()
+        .map_err(|e| format!("Error al obtener directorio ejecutable: {}", e))?;
+    let exe_parent = exe_dir.parent()
+        .ok_or("No se pudo obtener directorio padre del ejecutable")?;
+    
+    // Buscar plantilla en resources
+    let template_path = exe_parent.join("resources/templates/MODELO_ORDEN_DE_COMPRA.xlsx");
+    
+    if !template_path.exists() {
+        return Err(format!("Plantilla Excel no encontrada en: {:?}", template_path));
+    }
+    
+    // Construir rutas de salida
+    let home_dir = dirs::home_dir()
+        .ok_or("No se pudo obtener el directorio home")?;
+    let docs_dir = home_dir.join("Documents");
+    std::fs::create_dir_all(&docs_dir)
+        .map_err(|e| format!("Error al crear directorio: {}", e))?;
+    
+    let safe_oc_number = data.numero_oc.replace("/", "-");
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| format!("Error al obtener timestamp: {}", e))?
+        .as_secs();
+    let excel_filename = format!("OC-{}-{}.xlsx", safe_oc_number, timestamp);
+    
+    let excel_path = docs_dir.join(&excel_filename);
+    
+    // Crear datos Excel
+    let destino_limpio = data.destino
+        .replace("Zona Riego", "")
+        .replace("ZONA RIEGO", "")
+        .trim()
+        .to_string();
+    
+    // Formatear fecha de ISO (2026-02-11) a español (11 de febrero de 2026)
+    let fecha_formateada = formatear_fecha_español(&data.fecha)
+        .unwrap_or_else(|_| data.fecha.clone());
+    
+    // Formatear expediente completo con GDE/InfoGov si existe
+    let expediente_completo = formatear_expediente_completo(
+        &data.expediente_numero, 
+        data.expediente_año,
+        data.nro_gde.as_deref(),
+        data.nro_infogov.as_deref()
+    );
+    
+    let excel_data = OCExcelData {
+        numero_oc: data.numero_oc.clone(),
+        pedido_nro: data.pedido_nro,
+        destino: destino_limpio,
+        fecha: fecha_formateada,
+        expediente_numero: expediente_completo,
+        expediente_año: data.expediente_año,
+        resolucion_nro: data.resolucion_nro.clone(),
+        tipo_contratacion: data.tipo_contratacion.clone(),
+        señor: data.señor.clone(),
+        domicilio: data.domicilio.clone(),
+        cuit: data.cuit.clone(),
+        descripcion_zona: data.descripcion_zona.clone(),
+        renglones: data.renglones.iter().map(|r| OCRenglon {
+            numero: r.numero,
+            cantidad: r.cantidad,
+            concepto: r.concepto.clone(),
+            marca: r.marca.clone(),
+            valor_unitario: r.valor_unitario,
+            total: r.total,
+        }).collect(),
+        subtotal: data.subtotal,
+        iva: data.iva,
+        total: data.total,
+        total_en_letras: data.total_en_letras.clone(),
+        forma_pago: data.forma_pago.clone(),
+        plazo_entrega: data.plazo_entrega.clone(),
+        es_iva_inscripto: data.es_iva_inscripto,
+    };
+    
+    // Copiar plantilla sin modificar
+    std::fs::copy(&template_path, &excel_path)
+        .map_err(|e| format!("Error al copiar plantilla: {}", e))?;
+    
+    println!("✓ Plantilla copiada: {:?}", excel_path);
+    
+    // Llenar Excel usando PowerShell
+    ejecutar_llenado_excel_con_datos(
+        excel_path.to_str().ok_or("Ruta de Excel inválida")?,
+        excel_data,
+    )
+    .map_err(|e| format!("Error al generar Excel: {}", e))?;
+
+    let path_str = excel_path.to_str()
+        .ok_or("No se pudo convertir la ruta a string")?
+        .to_string();
+
+    println!("✓ Excel generado exitosamente en: {}", path_str);
     Ok(path_str)
 }
 

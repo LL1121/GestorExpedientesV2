@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ElementType, type MouseEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { openPath } from "@tauri-apps/plugin-opener";
 import {
   Search,
   LayoutDashboard,
   FileText,
-  Archive,
   BarChart3,
   Settings,
   MoreVertical,
@@ -28,6 +28,13 @@ import {
   Truck,
   Users,
   ChevronDown,
+  Copy,
+  Calendar,
+  Building2,
+  MapPin,
+  User,
+  CreditCard,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +69,7 @@ import PreviewOC from "@/components/PreviewOC";
 import ConfigTopes from "@/components/ConfigTopes";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
-type ActiveView = "dashboard" | "archivo" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc" | "preview-oc";
+type ActiveView = "dashboard" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc" | "preview-oc";
 
 export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -90,6 +97,12 @@ export default function Dashboard() {
     return saved ? JSON.parse(saved) : false;
   });
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    items: { label: string; icon?: ElementType; onClick: () => void; danger?: boolean }[];
+  }>({ visible: false, x: 0, y: 0, items: [] });
 
   const formatError = (err: unknown) => {
     if (err instanceof Error) return err.message;
@@ -178,8 +191,11 @@ export default function Dashboard() {
     try {
       const prepared = await OrdenCompraService.prepararNuevaOC(expediente.id);
       setOcDraft(prepared);
+      setOcRenglones([
+        { cantidad: 0, detalle: "", marca: "", valor_unitario: 0 },
+      ]);
       setSelectedRecord(null);
-      setActiveView("formulario-oc");
+      setActiveView("preview-oc");
     } catch (err) {
       const errorMessage = formatError(err);
       console.error("Error al preparar OC:", err);
@@ -192,7 +208,6 @@ export default function Dashboard() {
     { label: "Iniciado", value: "Iniciado", count: expedientes.filter((r) => r.estado === "Iniciado").length },
     { label: "En Proceso", value: "EnProceso", count: expedientes.filter((r) => r.estado === "EnProceso").length },
     { label: "Finalizado", value: "Finalizado", count: expedientes.filter((r) => r.estado === "Finalizado").length },
-    { label: "Archivado", value: "Archivado", count: expedientes.filter((r) => r.estado === "Archivado").length },
     { label: "InfoGov", value: "InfoGov", count: expedientes.filter((r) => r.tipo === "InfoGov").length },
     { label: "GDE", value: "Gde", count: expedientes.filter((r) => r.tipo === "Gde").length },
   ];
@@ -243,8 +258,47 @@ export default function Dashboard() {
     return new Date(dateString).toLocaleDateString("es-AR");
   };
 
+  const closeContextMenu = () => {
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+  };
+
+  const openContextMenu = (
+    e: MouseEvent,
+    items: { label: string; icon?: ElementType; onClick: () => void; danger?: boolean }[]
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const menuWidth = 240;
+    const menuHeight = Math.max(120, items.length * 40);
+    const x = Math.min(e.clientX, window.innerWidth - menuWidth - 8);
+    const y = Math.min(e.clientY, window.innerHeight - menuHeight - 8);
+    setContextMenu({ visible: true, x, y, items });
+  };
+
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
+    <div
+      className="flex h-screen bg-slate-50 dark:bg-slate-900"
+      onContextMenu={(e) =>
+        openContextMenu(e, [
+          {
+            label: "Nuevo expediente",
+            icon: Plus,
+            onClick: () => {
+              setIsAddDialogOpen(true);
+              closeContextMenu();
+            },
+          },
+          {
+            label: "Actualizar",
+            icon: RefreshCw,
+            onClick: () => {
+              loadExpedientes();
+              closeContextMenu();
+            },
+          },
+        ])
+      }
+    >
       {error && (
         <div className="fixed top-4 right-4 z-50 max-w-2xl max-h-96 overflow-y-auto rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-lg">
           <div className="flex items-start gap-2">
@@ -289,7 +343,6 @@ export default function Dashboard() {
             { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" as ActiveView },
             { icon: Truck, label: "Movilidades", view: "movilidades" as ActiveView },
             { icon: Users, label: "Personal", view: "personal" as ActiveView },
-            { icon: Archive, label: "Archivo", view: "archivo" as ActiveView },
             { icon: BarChart3, label: "Analíticas", view: "analiticas" as ActiveView },
             { icon: Settings, label: "Configuración", view: "configuracion" as ActiveView },
           ].map((item, idx) => (
@@ -474,6 +527,62 @@ export default function Dashboard() {
                       onMouseEnter={() => setHoveredRow(record.id)}
                       onMouseLeave={() => setHoveredRow(null)}
                       onClick={() => setSelectedRecord(record)}
+                      onContextMenu={(e) =>
+                        openContextMenu(e, [
+                          {
+                            label: "Ver detalles",
+                            icon: FileText,
+                            onClick: () => {
+                              setSelectedRecord(record);
+                              closeContextMenu();
+                            },
+                          },
+                          ...(record.tipo === "Pago"
+                            ? [
+                                {
+                                  label: "Generar Orden de Compra",
+                                  icon: FileSpreadsheet,
+                                  onClick: () => {
+                                    handleGenerarOC(record);
+                                    closeContextMenu();
+                                  },
+                                },
+                              ]
+                            : []),
+                          {
+                            label: "Copiar N° expediente",
+                            icon: Copy,
+                            onClick: () => {
+                              navigator.clipboard?.writeText(`${record.numero}-${record.año}`);
+                              closeContextMenu();
+                            },
+                          },
+                          {
+                            label: "Editar",
+                            icon: Edit,
+                            onClick: () => {
+                              alert("Edición - Próximamente disponible");
+                              closeContextMenu();
+                            },
+                          },
+                          {
+                            label: "Eliminar",
+                            icon: Trash2,
+                            danger: true,
+                            onClick: async () => {
+                              closeContextMenu();
+                              if (confirm(`¿Eliminar expediente ${record.numero}-${record.año}?`)) {
+                                try {
+                                  await ExpedienteService.delete(record.id);
+                                  await loadExpedientes();
+                                } catch (err) {
+                                  alert("Error al eliminar: " + err);
+                                }
+                              }
+                            },
+                          },
+                        ])
+                      }
                     >
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
@@ -560,114 +669,6 @@ export default function Dashboard() {
             ))
           }
 
-          {/* Vista: Archivo */}
-          {activeView === "archivo" && (
-            <div className="space-y-6">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Archivo</h2>
-                  <p className="text-sm text-slate-600 mt-1">Expedientes archivados y finalizados</p>
-                </div>
-                <Button variant="outline" size="sm" onClick={loadExpedientes}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Actualizar
-                </Button>
-              </div>
-
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white rounded-lg border border-slate-200 p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-600">Total Archivados</p>
-                      <p className="text-2xl font-bold text-slate-900 mt-1">
-                        {expedientes.filter(e => e.estado === "Archivado").length}
-                      </p>
-                    </div>
-                    <Archive className="h-8 w-8 text-amber-500" />
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg border border-slate-200 p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-600">Finalizados</p>
-                      <p className="text-2xl font-bold text-slate-900 mt-1">
-                        {expedientes.filter(e => e.estado === "Finalizado").length}
-                      </p>
-                    </div>
-                    <CheckCircle className="h-8 w-8 text-emerald-500" />
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg border border-slate-200 p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-600">Este Mes</p>
-                      <p className="text-2xl font-bold text-slate-900 mt-1">
-                        {expedientes.filter(e => {
-                          const updated = new Date(e.updated_at);
-                          const now = new Date();
-                          return updated.getMonth() === now.getMonth() && updated.getFullYear() === now.getFullYear() && (e.estado === "Archivado" || e.estado === "Finalizado");
-                        }).length}
-                      </p>
-                    </div>
-                    <Clock className="h-8 w-8 text-blue-500" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Archived Table */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                {expedientes.filter(e => e.estado === "Archivado" || e.estado === "Finalizado").length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <FolderOpen className="h-16 w-16 text-slate-300 mb-4" />
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">No hay expedientes archivados</h3>
-                    <p className="text-sm text-slate-500">Los expedientes finalizados aparecerán aquí</p>
-                  </div>
-                ) : (
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">ID</th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Asunto</th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Tipo</th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Área</th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Fecha Archivo</th>
-                        <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {expedientes.filter(e => e.estado === "Archivado" || e.estado === "Finalizado").map((record) => (
-                        <tr key={record.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedRecord(record)}>
-                          <td className="py-4 px-4">
-                            <span className="text-sm font-mono text-slate-900 dark:text-white">{record.numero}-{record.año}</span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className="text-sm font-medium text-slate-900 line-clamp-1">{record.asunto}</span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <Badge variant="secondary" className="text-xs">{record.tipo}</Badge>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className="text-sm text-slate-600">{record.area_responsable}</span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className="text-sm text-slate-600">{formatDate(record.updated_at)}</span>
-                          </td>
-                          <td className="py-4 px-4 text-right">
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedRecord(record); }}>
-                              <FileText className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Vista: Movilidades */}
           {activeView === "movilidades" && <Movilidades />}
 
@@ -736,7 +737,6 @@ export default function Dashboard() {
                       { estado: "En Revisión", color: "bg-purple-500", count: expedientes.filter(e => e.estado === "EnRevision").length },
                       { estado: "Observado", color: "bg-red-500", count: expedientes.filter(e => e.estado === "Observado").length },
                       { estado: "Finalizado", color: "bg-emerald-500", count: expedientes.filter(e => e.estado === "Finalizado").length },
-                      { estado: "Archivado", color: "bg-slate-400", count: expedientes.filter(e => e.estado === "Archivado").length },
                     ].map((item) => (
                       <div key={item.estado} className="flex items-center gap-3">
                         <div className="flex-1">
@@ -852,6 +852,68 @@ export default function Dashboard() {
                 setActiveView("formulario-oc");
                 setPdfGenerationStatus('idle');
               }}
+              onGenerateExcel={async (editedData) => {
+                try {
+                  if (!ocDraft) return;
+                  if (isGeneratingPDF) return;
+                  setIsGeneratingPDF(true);
+                  setPdfGenerationStatus('loading');
+
+                  const excelRequest = {
+                    numero_oc: editedData.numeroOC,
+                    pedido_nro: editedData.pedidoNro,
+                    destino: editedData.destino,
+                    fecha: editedData.fecha,
+                    expediente_numero: ocDraft.expediente.numero,
+                    expediente_año: ocDraft.expediente.año,
+                    nro_gde: ocDraft.expediente.nro_gde,
+                    nro_infogov: ocDraft.expediente.nro_infogov,
+                    resolucion_nro: ocDraft.expediente.resolucion_nro,
+                    tipo_contratacion: ocDraft.tipo_contratacion,
+                    señor: editedData.señor,
+                    domicilio: editedData.domicilio,
+                    cuit: editedData.cuit,
+                    descripcion_zona: editedData.descripcionZona,
+                    renglones: editedData.renglones.map((r: any, idx: number) => ({
+                      numero: idx + 1,
+                      cantidad: r.cantidad,
+                      concepto: r.detalle,
+                      marca: r.marca || null,
+                      valor_unitario: r.valor_unitario,
+                      total: r.cantidad * r.valor_unitario,
+                    })),
+                    subtotal: editedData.subtotal,
+                    iva: editedData.iva,
+                    total: editedData.total,
+                    total_en_letras: ocDraft.total_en_letras,
+                    forma_pago: editedData.formaPago,
+                    plazo_entrega: editedData.plazoEntrega,
+                    es_iva_inscripto: ocDraft.es_iva_inscripto,
+                  };
+
+                  const excelPath = await invoke<string>('generar_excel', { data: excelRequest });
+                  await openPath(excelPath);
+                  setPdfGenerationStatus('success');
+
+                  setTimeout(() => {
+                    setActiveView("dashboard");
+                    setOcDraft(null);
+                    setOcRenglones([]);
+                    setPdfGenerationStatus('idle');
+                  }, 1500);
+                } catch (err) {
+                  console.error("Error al generar Excel:", err);
+                  setPdfGenerationStatus('error');
+                  const errorMsg = formatError(err);
+                  setError(`Error al generar Excel: ${errorMsg}`);
+
+                  setTimeout(() => {
+                    setPdfGenerationStatus('idle');
+                  }, 3000);
+                } finally {
+                  setIsGeneratingPDF(false);
+                }
+              }}
               onGeneratePDF={async (editedData) => {
                 try {
                   if (!ocDraft) return;
@@ -891,17 +953,17 @@ export default function Dashboard() {
                     es_iva_inscripto: ocDraft.es_iva_inscripto,
                   };
                   
-                  const pdfPath = await invoke('generar_pdf', { data: pdfRequest });
+                  const pdfPath = await invoke<string>('generar_pdf', { data: pdfRequest });
+                  await openPath(pdfPath);
                   setPdfGenerationStatus('success');
-                  setError(`✓ PDF generado: ${pdfPath}`);
                   
-                  // Limpiar y volver al dashboard después de 3 segundos
+                  // Volver al dashboard inmediatamente después del éxito
                   setTimeout(() => {
                     setActiveView("dashboard");
                     setOcDraft(null);
                     setOcRenglones([]);
                     setPdfGenerationStatus('idle');
-                  }, 3000);
+                  }, 1500);  // Breve delay para que el usuario vea el estado de éxito
                 } catch (err) {
                   console.error("Error al generar PDF:", err);
                   setPdfGenerationStatus('error');
@@ -1299,113 +1361,185 @@ export default function Dashboard() {
 
       {/* Dialog: Detalles del Expediente */}
       <Dialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle>
-              Expediente {selectedRecord?.numero}-{selectedRecord?.año}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedRecord?.asunto}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedRecord && (
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Estado</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className={cn("h-2.5 w-2.5 rounded-full", getStatusColor(selectedRecord.estado))} />
-                    <span className="text-sm font-medium">{getStatusLabel(selectedRecord.estado)}</span>
+        <DialogContent showCloseButton={false} className="w-[75vw] max-h-[70vh] bg-gradient-to-br from-white to-slate-50 p-0 overflow-hidden">
+          <div className="overflow-y-auto max-h-[70vh] px-6 pt-6">
+            <DialogHeader className="border-b pb-4">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <DialogTitle className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <FileText className="h-6 w-6 text-blue-600" />
+                    Expediente {selectedRecord?.numero}-{selectedRecord?.año}
+                  </DialogTitle>
+                  <DialogDescription className="text-base text-slate-600">
+                    {selectedRecord?.asunto}
+                  </DialogDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedRecord && (
+                    <div className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
+                      selectedRecord.estado === "Finalizado" && "bg-green-100 text-green-700",
+                      selectedRecord.estado === "EnProceso" && "bg-blue-100 text-blue-700",
+                      selectedRecord.estado === "Iniciado" && "bg-yellow-100 text-yellow-700"
+                    )}>
+                      <div className={cn("h-2 w-2 rounded-full", getStatusColor(selectedRecord.estado))} />
+                      {getStatusLabel(selectedRecord.estado)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </DialogHeader>
+            
+            {selectedRecord && (
+              <div className="space-y-6 py-6">
+              {/* Información Principal */}
+              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+                <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                  <LayoutDashboard className="h-4 w-4 text-blue-600" />
+                  Información General
+                </h3>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5" />
+                      Tipo
+                    </p>
+                    <p className="text-sm font-medium text-slate-900">{selectedRecord.tipo}</p>
                   </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Tipo</p>
-                  <p className="text-sm mt-1">{selectedRecord.tipo}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Prioridad</p>
-                  <p className="text-sm mt-1">{selectedRecord.prioridad}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Área Responsable</p>
-                  <p className="text-sm mt-1">{selectedRecord.area_responsable}</p>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      Prioridad
+                    </p>
+                    <div className={cn(
+                      "inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold",
+                      selectedRecord.prioridad === "Urgente" && "bg-red-100 text-red-700",
+                      selectedRecord.prioridad === "Alta" && "bg-orange-100 text-orange-700",
+                      selectedRecord.prioridad === "Media" && "bg-yellow-100 text-yellow-700",
+                      selectedRecord.prioridad === "Baja" && "bg-green-100 text-green-700"
+                    )}>
+                      {selectedRecord.prioridad}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5" />
+                      Área Responsable
+                    </p>
+                    <p className="text-sm font-medium text-slate-900">{selectedRecord.area_responsable}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5" />
+                      Agente
+                    </p>
+                    <p className="text-sm font-medium text-slate-900">{selectedRecord.agente_responsable_id || "No asignado"}</p>
+                  </div>
                 </div>
               </div>
 
+              {/* Descripción */}
               {selectedRecord.descripcion && (
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Descripción</p>
-                  <p className="text-sm mt-1 text-slate-700">{selectedRecord.descripcion}</p>
+                <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+                  <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-blue-600" />
+                    Descripción
+                  </h3>
+                  <p className="text-sm text-slate-700 leading-relaxed">{selectedRecord.descripcion}</p>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Fecha de Inicio</p>
-                  <p className="text-sm mt-1">
-                    {selectedRecord.fecha_inicio ? formatDate(selectedRecord.fecha_inicio) : "No especificada"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Fecha de Vencimiento</p>
-                  <p className="text-sm mt-1">
-                    {selectedRecord.fecha_vencimiento ? formatDate(selectedRecord.fecha_vencimiento) : "No especificada"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Creado</p>
-                  <p className="text-sm mt-1">{formatDate(selectedRecord.created_at)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Actualizado</p>
-                  <p className="text-sm mt-1">{formatDate(selectedRecord.updated_at)}</p>
+              {/* Fechas */}
+              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+                <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-blue-600" />
+                  Fechas
+                </h3>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha de Inicio</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      {selectedRecord.fecha_inicio ? formatDate(selectedRecord.fecha_inicio) : "No especificada"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha de Vencimiento</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      {selectedRecord.fecha_vencimiento ? formatDate(selectedRecord.fecha_vencimiento) : "No especificada"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Creado</p>
+                    <p className="text-sm text-slate-700">{formatDate(selectedRecord.created_at)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Última Actualización</p>
+                    <p className="text-sm text-slate-700">{formatDate(selectedRecord.updated_at)}</p>
+                  </div>
                 </div>
               </div>
 
               {/* Campos específicos para expedientes de tipo Pago */}
               {selectedRecord.tipo === "Pago" && (
-                <div className="space-y-4 border-t pt-4 mt-4">
-                  <h4 className="text-sm font-semibold text-slate-700">Datos de Orden de Compra</h4>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm p-5">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-4 flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-blue-600" />
+                    Datos de Orden de Compra
+                  </h3>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-6">
                     {selectedRecord.oc_señor && (
-                      <div>
-                        <p className="text-sm font-medium text-slate-500">Señor/es</p>
-                        <p className="text-sm mt-1">{selectedRecord.oc_señor}</p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <User className="h-3.5 w-3.5" />
+                          Proveedor
+                        </p>
+                        <p className="text-sm font-medium text-blue-900">{selectedRecord.oc_señor}</p>
                       </div>
                     )}
                     {selectedRecord.oc_domicilio && (
-                      <div>
-                        <p className="text-sm font-medium text-slate-500">Domicilio</p>
-                        <p className="text-sm mt-1">{selectedRecord.oc_domicilio}</p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5" />
+                          Domicilio
+                        </p>
+                        <p className="text-sm font-medium text-blue-900">{selectedRecord.oc_domicilio}</p>
                       </div>
                     )}
                     {selectedRecord.oc_cuit && (
-                      <div>
-                        <p className="text-sm font-medium text-slate-500">CUIT</p>
-                        <p className="text-sm mt-1">{selectedRecord.oc_cuit}</p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <FileText className="h-3.5 w-3.5" />
+                          CUIT
+                        </p>
+                        <p className="text-sm font-medium text-blue-900">{selectedRecord.oc_cuit}</p>
                       </div>
                     )}
                     {selectedRecord.oc_descripcion_zona && (
-                      <div>
-                        <p className="text-sm font-medium text-slate-500">Zona</p>
-                        <p className="text-sm mt-1">{selectedRecord.oc_descripcion_zona}</p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5" />
+                          Zona
+                        </p>
+                        <p className="text-sm font-medium text-blue-900">{selectedRecord.oc_descripcion_zona}</p>
                       </div>
                     )}
                     {selectedRecord.oc_forma_pago && (
-                      <div>
-                        <p className="text-sm font-medium text-slate-500">Forma de Pago</p>
-                        <p className="text-sm mt-1">{selectedRecord.oc_forma_pago}</p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <CreditCard className="h-3.5 w-3.5" />
+                          Forma de Pago
+                        </p>
+                        <p className="text-sm font-medium text-blue-900">{selectedRecord.oc_forma_pago}</p>
                       </div>
                     )}
                     {selectedRecord.oc_plazo_entrega && (
-                      <div>
-                        <p className="text-sm font-medium text-slate-500">Plazo de Entrega</p>
-                        <p className="text-sm mt-1">{selectedRecord.oc_plazo_entrega}</p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <Package className="h-3.5 w-3.5" />
+                          Plazo de Entrega
+                        </p>
+                        <p className="text-sm font-medium text-blue-900">{selectedRecord.oc_plazo_entrega}</p>
                       </div>
                     )}
                   </div>
@@ -1414,17 +1548,18 @@ export default function Dashboard() {
             </div>
           )}
 
-          <DialogFooter>
-            <div className="flex flex-wrap gap-2">
+          <DialogFooter className="border-t pt-4 px-6 pb-6">
+            <div className="flex flex-wrap gap-2 w-full justify-between">
               {selectedRecord?.tipo === "Pago" && (
                 <Button
-                  variant="outline"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   onClick={() => {
                     if (selectedRecord) {
                       handleGenerarOC(selectedRecord);
                     }
                   }}
                 >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Generar Orden de Compra
                 </Button>
               )}
@@ -1433,8 +1568,36 @@ export default function Dashboard() {
               </Button>
             </div>
           </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
+
+      {contextMenu.visible && (
+        <div className="fixed inset-0 z-[100]" onClick={closeContextMenu}>
+          <div
+            className="absolute min-w-[240px] rounded-lg border border-slate-200 bg-white shadow-xl py-2 animate-in fade-in zoom-in-95 duration-150"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            {contextMenu.items.map((item, idx) => (
+              <button
+                key={`${item.label}-${idx}`}
+                className={cn(
+                  "w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-150 hover:translate-x-0.5",
+                  item.danger
+                    ? "text-red-600 hover:bg-red-50"
+                    : "text-slate-700 hover:bg-slate-100"
+                )}
+                onClick={item.onClick}
+              >
+                {item.icon && <item.icon className="h-4 w-4" />}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

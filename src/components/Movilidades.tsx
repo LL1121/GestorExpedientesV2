@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Truck, Fuel, Package, Plus, Edit, Trash2, TrendingUp, AlertCircle, CheckCircle, ChevronDown } from "lucide-react";
+import { Truck, Fuel, Package, Plus, Edit, Trash2, TrendingUp, AlertCircle, CheckCircle, ChevronDown, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,29 +10,34 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { cn } from "@/lib/utils";
-import type { Vehiculo, CreateVehiculoInput, TicketCombustible, CreateTicketInput, Consumible, CreateConsumibleInput } from "@/types/vehiculo";
+import type { Vehiculo, CreateVehiculoInput, TicketCombustible, CreateTicketInput, Consumible, CreateConsumibleInput, HistorialMecanico, CreateHistorialMecanicoInput } from "@/types/vehiculo";
 
-type ActiveTab = "vehiculos" | "combustible" | "consumibles";
+type ActiveTab = "vehiculos" | "combustible" | "consumibles" | "historial";
 
 export default function Movilidades() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("vehiculos");
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [tickets, setTickets] = useState<TicketCombustible[]>([]);
   const [consumibles, setConsumibles] = useState<Consumible[]>([]);
+  const [historial, setHistorial] = useState<HistorialMecanico[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddVehiculoOpen, setIsAddVehiculoOpen] = useState(false);
   const [isAddTicketOpen, setIsAddTicketOpen] = useState(false);
   const [isAddMultipleTicketsOpen, setIsAddMultipleTicketsOpen] = useState(false);
   const [isAddConsumibleOpen, setIsAddConsumibleOpen] = useState(false);
+  const [isAddHistorialOpen, setIsAddHistorialOpen] = useState(false);
   const [isEditVehiculoOpen, setIsEditVehiculoOpen] = useState(false);
   const [isEditTicketOpen, setIsEditTicketOpen] = useState(false);
   const [isEditConsumibleOpen, setIsEditConsumibleOpen] = useState(false);
+  const [isEditHistorialOpen, setIsEditHistorialOpen] = useState(false);
   const [selectedVehiculo, setSelectedVehiculo] = useState<Vehiculo | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<TicketCombustible | null>(null);
   const [selectedConsumible, setSelectedConsumible] = useState<Consumible | null>(null);
+  const [selectedHistorial, setSelectedHistorial] = useState<HistorialMecanico | null>(null);
   const [editingVehiculo, setEditingVehiculo] = useState<Vehiculo | null>(null);
   const [editingTicket, setEditingTicket] = useState<TicketCombustible | null>(null);
   const [editingConsumible, setEditingConsumible] = useState<Consumible | null>(null);
+  const [editingHistorial, setEditingHistorial] = useState<HistorialMecanico | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
@@ -47,6 +52,7 @@ export default function Movilidades() {
 
   const [newVehiculo, setNewVehiculo] = useState<Partial<CreateVehiculoInput>>({
     tipo: "Camioneta",
+    personas_habilitadas: [],
   });
   const [newTicket, setNewTicket] = useState<Partial<CreateTicketInput>>({
     fecha: new Date().toISOString().split('T')[0],
@@ -56,6 +62,10 @@ export default function Movilidades() {
   ]);
   const [newConsumible, setNewConsumible] = useState<Partial<CreateConsumibleInput>>({
     unidad: "Unidad",
+  });
+  const [newHistorial, setNewHistorial] = useState<Partial<CreateHistorialMecanicoInput>>({
+    fecha: new Date().toISOString().split('T')[0],
+    tipo_trabajo: "Mantenimiento",
   });
 
   useEffect(() => {
@@ -70,25 +80,33 @@ export default function Movilidades() {
         // setVehiculos(data);
         // Mock data por ahora
         setVehiculos([
-          { id: "1", patente: "AA123BB", marca: "Toyota", modelo: "Hilux", año: 2020, tipo: "Camioneta", estado: "Activo", kilometraje: 45000, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: "2", patente: "CC456DD", marca: "Ford", modelo: "Ranger", año: 2019, tipo: "Camioneta", estado: "Activo", kilometraje: 78000, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: "1", patente: "AA123BB", marca: "Toyota", modelo: "Hilux", año: 2020, tipo: "Camioneta", estado: "Activo", kilometraje: 45000, personas_habilitadas: ["Juan Pérez", "María García"], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: "2", patente: "CC456DD", marca: "Ford", modelo: "Ranger", año: 2019, tipo: "Camioneta", estado: "Activo", kilometraje: 78000, personas_habilitadas: ["Carlos López"], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
         ]);
       } else if (activeTab === "combustible") {
         // const data = await invoke<TicketCombustible[]>("get_all_tickets");
         // setTickets(data);
         // Mock data
         setTickets([
-          { id: "1", vehiculo_id: "1", vehiculo_patente: "AA123BB", fecha: "2026-02-05", litros: 45, precio_total: 9000, kilometraje_actual: 45000, rendimiento: 12.5, created_at: new Date().toISOString() },
-          { id: "2", vehiculo_id: "2", vehiculo_patente: "CC456DD", fecha: "2026-02-04", litros: 50, precio_total: 10000, kilometraje_actual: 78000, rendimiento: 8.2, created_at: new Date().toISOString() },
-          { id: "3", vehiculo_id: "1", vehiculo_patente: "AA123BB", fecha: "2026-02-03", litros: 40, precio_total: 8000, kilometraje_actual: 44500, rendimiento: 10.8, created_at: new Date().toISOString() },
+          { id: "1", vehiculo_id: "1", vehiculo_patente: "AA123BB", fecha: "2026-02-05", litros: 45, precio_total: 9000, kilometraje_actual: 45000, created_at: new Date().toISOString() },
+          { id: "2", vehiculo_id: "2", vehiculo_patente: "CC456DD", fecha: "2026-02-04", litros: 50, precio_total: 10000, kilometraje_actual: 78000, created_at: new Date().toISOString() },
+          { id: "3", vehiculo_id: "1", vehiculo_patente: "AA123BB", fecha: "2026-02-03", litros: 40, precio_total: 8000, kilometraje_actual: 44500, created_at: new Date().toISOString() },
         ]);
-      } else {
+      } else if (activeTab === "consumibles") {
         // const data = await invoke<Consumible[]>("get_all_consumibles");
         // setConsumibles(data);
         // Mock data
         setConsumibles([
           { id: "1", nombre: "Aceite 15W40", categoria: "Lubricantes", cantidad: 25, unidad: "Litros", stock_minimo: 10, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
           { id: "2", nombre: "Filtro de Aire", categoria: "Filtros", cantidad: 8, unidad: "Unidad", stock_minimo: 5, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        ]);
+      } else if (activeTab === "historial") {
+        // const data = await invoke<HistorialMecanico[]>("get_all_historial_mecanico");
+        // setHistorial(data);
+        // Mock data
+        setHistorial([
+          { id: "1", vehiculo_id: "1", vehiculo_patente: "AA123BB", fecha: "2026-02-01", tipo_trabajo: "Mantenimiento", descripcion: "Cambio de aceite y filtros", costo: 15000, taller: "Mecánica Central", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: "2", vehiculo_id: "2", vehiculo_patente: "CC456DD", fecha: "2026-01-15", tipo_trabajo: "Reparación", descripcion: "Reemplazo de pastillas de freno delanteras", costo: 28000, taller: "Taller Rodriguez", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
         ]);
       }
     } catch (error) {
@@ -256,33 +274,6 @@ export default function Movilidades() {
     }
   };
 
-  const getRendimientoBadge = (rendimiento?: number) => {
-    if (!rendimiento) return <Badge variant="secondary">N/A</Badge>;
-    
-    if (rendimiento > 11) {
-      return (
-        <Badge className="bg-emerald-500 text-white">
-          <TrendingUp className="h-3 w-3 mr-1" />
-          {rendimiento.toFixed(1)} km/l
-        </Badge>
-      );
-    } else if (rendimiento >= 9) {
-      return (
-        <Badge className="bg-blue-500 text-white">
-          <CheckCircle className="h-3 w-3 mr-1" />
-          {rendimiento.toFixed(1)} km/l
-        </Badge>
-      );
-    } else {
-      return (
-        <Badge className="bg-orange-500 text-white">
-          <AlertCircle className="h-3 w-3 mr-1" />
-          {rendimiento.toFixed(1)} km/l
-        </Badge>
-      );
-    }
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("es-AR");
   };
@@ -302,6 +293,7 @@ export default function Movilidades() {
             {[
               { id: "vehiculos", label: "Vehículos", icon: Truck },
               { id: "combustible", label: "Combustible", icon: Fuel },
+              { id: "historial", label: "Historial Mecánico", icon: Wrench },
               { id: "consumibles", label: "Consumibles", icon: Package },
             ].map((tab) => (
               <button
@@ -337,7 +329,7 @@ export default function Movilidades() {
                       <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Flota de Vehículos</h2>
                       <p className="text-sm text-slate-600">{vehiculos.length} vehículos registrados</p>
                     </div>
-                    <Button onClick={() => setIsAddVehiculoOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={() => setIsAddVehiculoOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
                       <Plus className="h-4 w-4 mr-2" />
                       Agregar Vehículo
                     </Button>
@@ -370,7 +362,7 @@ export default function Movilidades() {
                               <span className="text-sm text-slate-900 dark:text-white">{vehiculo.marca} {vehiculo.modelo}</span>
                             </td>
                             <td className="py-4 px-4">
-                              <Badge variant="secondary">{vehiculo.tipo}</Badge>
+                              <span className="text-sm text-slate-900 dark:text-white">{vehiculo.tipo}</span>
                             </td>
                             <td className="py-4 px-4">
                               <span className="text-sm text-slate-600">{vehiculo.año}</span>
@@ -422,7 +414,7 @@ export default function Movilidades() {
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button className="bg-blue-600 hover:bg-blue-700">
+                        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                           <Plus className="h-4 w-4 mr-2" />
                           Registrar Carga
                           <ChevronDown className="h-4 w-4 ml-2" />
@@ -457,7 +449,6 @@ export default function Movilidades() {
                           <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Litros</th>
                           <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Precio Total</th>
                           <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Kilometraje</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Rendimiento</th>
                           <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
                         </tr>
                       </thead>
@@ -482,9 +473,6 @@ export default function Movilidades() {
                             </td>
                             <td className="py-4 px-4">
                               <span className="text-sm text-slate-600">{ticket.kilometraje_actual.toLocaleString()} km</span>
-                            </td>
-                            <td className="py-4 px-4">
-                              {getRendimientoBadge(ticket.rendimiento)}
                             </td>
                             <td className="py-4 px-4 text-right">
                               <div className="flex justify-end gap-2">
@@ -520,7 +508,7 @@ export default function Movilidades() {
                       <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Inventario de Consumibles</h2>
                       <p className="text-sm text-slate-600">{consumibles.length} ítems en stock</p>
                     </div>
-                    <Button onClick={() => setIsAddConsumibleOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={() => setIsAddConsumibleOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
                       <Plus className="h-4 w-4 mr-2" />
                       Agregar Consumible
                     </Button>
@@ -549,7 +537,7 @@ export default function Movilidades() {
                               <span className="text-sm font-medium text-slate-900 dark:text-white">{consumible.nombre}</span>
                             </td>
                             <td className="py-4 px-4">
-                              <Badge variant="secondary">{consumible.categoria}</Badge>
+                              <span className="text-sm text-slate-900 dark:text-white">{consumible.categoria}</span>
                             </td>
                             <td className="py-4 px-4">
                               <span className="text-sm text-slate-900 dark:text-white">{consumible.cantidad} {consumible.unidad}</span>
@@ -580,6 +568,102 @@ export default function Movilidades() {
                                   variant="ghost" 
                                   size="sm"
                                   onClick={(e) => handleDeleteConsumible(consumible.id, e)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Historial Mecánico Tab */}
+              {activeTab === "historial" && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Historial Mecánico</h2>
+                      <p className="text-sm text-slate-600">{historial.length} registros de mantenimiento y reparaciones</p>
+                    </div>
+                    <Button onClick={() => setIsAddHistorialOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar Registro
+                    </Button>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Fecha</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Vehículo</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tipo de Trabajo</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Descripción</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Costo</th>
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {historial.map((item) => (
+                          <tr 
+                            key={item.id} 
+                            className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
+                            onClick={() => setSelectedHistorial(item)}
+                          >
+                            <td className="py-4 px-4">
+                              <span className="text-sm text-slate-900 dark:text-white">{formatDate(item.fecha)}</span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className="text-sm font-mono font-semibold text-slate-900 dark:text-white">{item.vehiculo_patente}</span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className="text-sm text-slate-900 dark:text-white">{item.tipo_trabajo}</span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className="text-sm text-slate-600 max-w-xs truncate block">{item.descripcion}</span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className="text-sm text-slate-900 dark:text-white">
+                                {item.costo ? `$${item.costo.toLocaleString()}` : '-'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingHistorial(item);
+                                    setIsEditHistorialOpen(true);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4 text-blue-500" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmDialog({
+                                      open: true,
+                                      title: "Eliminar Registro",
+                                      message: "¿Estás seguro de que deseas eliminar este registro del historial mecánico?",
+                                      onConfirm: async () => {
+                                        try {
+                                          // await invoke("delete_historial_mecanico", { id: item.id });
+                                          alert("Registro eliminado exitosamente");
+                                          await loadData();
+                                        } catch (error) {
+                                          alert("Error al eliminar registro: " + error);
+                                        }
+                                      },
+                                    });
+                                  }}
                                 >
                                   <Trash2 className="h-4 w-4 text-red-500" />
                                 </Button>
@@ -624,7 +708,7 @@ export default function Movilidades() {
                     <SelectItem value="Camioneta" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Camioneta</SelectItem>
                     <SelectItem value="Auto" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Auto</SelectItem>
                     <SelectItem value="Camion" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Camión</SelectItem>
-                    <SelectItem value="Moto" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Moto</SelectItem>
+                    <SelectItem value="Máquina" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Máquina</SelectItem>
                     <SelectItem value="Otro" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Otro</SelectItem>
                   </SelectContent>
                 </Select>
@@ -668,10 +752,52 @@ export default function Movilidades() {
                 />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>Personas Habilitadas</Label>
+              <div className="space-y-2">
+                {(newVehiculo.personas_habilitadas || []).map((persona, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      placeholder="Nombre completo"
+                      value={persona}
+                      onChange={(e) => {
+                        const updated = [...(newVehiculo.personas_habilitadas || [])];
+                        updated[index] = e.target.value;
+                        setNewVehiculo({ ...newVehiculo, personas_habilitadas: updated });
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const updated = (newVehiculo.personas_habilitadas || []).filter((_, i) => i !== index);
+                        setNewVehiculo({ ...newVehiculo, personas_habilitadas: updated });
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setNewVehiculo({
+                      ...newVehiculo,
+                      personas_habilitadas: [...(newVehiculo.personas_habilitadas || []), ""]
+                    });
+                  }}
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar Persona
+                </Button>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddVehiculoOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateVehiculo} className="bg-blue-600 hover:bg-blue-700">Guardar Vehículo</Button>
+            <Button onClick={handleCreateVehiculo} className="bg-blue-600 hover:bg-blue-700 text-white">Guardar Vehículo</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -703,7 +829,7 @@ export default function Movilidades() {
                     <SelectItem value="Camioneta" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Camioneta</SelectItem>
                     <SelectItem value="Auto" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Auto</SelectItem>
                     <SelectItem value="Camion" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Camión</SelectItem>
-                    <SelectItem value="Moto" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Moto</SelectItem>
+                    <SelectItem value="Máquina" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Máquina</SelectItem>
                     <SelectItem value="Otro" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Otro</SelectItem>
                   </SelectContent>
                 </Select>
@@ -747,10 +873,58 @@ export default function Movilidades() {
                 />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>Personas Habilitadas</Label>
+              <div className="space-y-2">
+                {(editingVehiculo?.personas_habilitadas || []).map((persona, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      placeholder="Nombre completo"
+                      value={persona}
+                      onChange={(e) => {
+                        if (editingVehiculo) {
+                          const updated = [...(editingVehiculo.personas_habilitadas || [])];
+                          updated[index] = e.target.value;
+                          setEditingVehiculo({ ...editingVehiculo, personas_habilitadas: updated });
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (editingVehiculo) {
+                          const updated = (editingVehiculo.personas_habilitadas || []).filter((_, i) => i !== index);
+                          setEditingVehiculo({ ...editingVehiculo, personas_habilitadas: updated });
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (editingVehiculo) {
+                      setEditingVehiculo({
+                        ...editingVehiculo,
+                        personas_habilitadas: [...(editingVehiculo.personas_habilitadas || []), ""]
+                      });
+                    }
+                  }}
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar Persona
+                </Button>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditVehiculoOpen(false)}>Cancelar</Button>
-            <Button onClick={handleUpdateVehiculo} className="bg-blue-600 hover:bg-blue-700">Guardar Cambios</Button>
+            <Button onClick={handleUpdateVehiculo} className="bg-blue-600 hover:bg-blue-700 text-white">Guardar Cambios</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -817,7 +991,7 @@ export default function Movilidades() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddTicketOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateTicket} className="bg-blue-600 hover:bg-blue-700">Registrar Carga</Button>
+            <Button onClick={handleCreateTicket} className="bg-blue-600 hover:bg-blue-700 text-white">Registrar Carga</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -884,7 +1058,7 @@ export default function Movilidades() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditTicketOpen(false)}>Cancelar</Button>
-            <Button onClick={handleUpdateTicket} className="bg-blue-600 hover:bg-blue-700">Guardar Cambios</Button>
+            <Button onClick={handleUpdateTicket} className="bg-blue-600 hover:bg-blue-700 text-white">Guardar Cambios</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1034,7 +1208,7 @@ export default function Movilidades() {
                   alert("Error al registrar cargas: " + error);
                 }
               }}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               Registrar {multipleTickets.length} Carga{multipleTickets.length > 1 ? 's' : ''}
             </Button>
@@ -1103,7 +1277,7 @@ export default function Movilidades() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddConsumibleOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateConsumible} className="bg-blue-600 hover:bg-blue-700">Guardar Consumible</Button>
+            <Button onClick={handleCreateConsumible} className="bg-blue-600 hover:bg-blue-700 text-white">Guardar Consumible</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1169,7 +1343,7 @@ export default function Movilidades() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditConsumibleOpen(false)}>Cancelar</Button>
-            <Button onClick={handleUpdateConsumible} className="bg-blue-600 hover:bg-blue-700">Guardar Cambios</Button>
+            <Button onClick={handleUpdateConsumible} className="bg-blue-600 hover:bg-blue-700 text-white">Guardar Cambios</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1204,7 +1378,7 @@ export default function Movilidades() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-slate-500">Tipo</p>
-                  <Badge variant="secondary">{selectedVehiculo.tipo}</Badge>
+                  <p className="text-base text-slate-900 dark:text-white">{selectedVehiculo.tipo}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-slate-500">Año</p>
@@ -1215,6 +1389,18 @@ export default function Movilidades() {
                   <p className="text-2xl font-bold text-blue-600">{selectedVehiculo.kilometraje.toLocaleString()} km</p>
                 </div>
               </div>
+              {selectedVehiculo.personas_habilitadas && selectedVehiculo.personas_habilitadas.length > 0 && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium text-slate-500 mb-3">Personas Habilitadas para Conducir</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedVehiculo.personas_habilitadas.map((persona, index) => (
+                      <Badge key={index} variant="secondary" className="text-sm">
+                        {persona}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="border-t pt-4">
                 <p className="text-xs text-slate-500">Creado: {new Date(selectedVehiculo.created_at).toLocaleString('es-AR')}</p>
                 <p className="text-xs text-slate-500">Última actualización: {new Date(selectedVehiculo.updated_at).toLocaleString('es-AR')}</p>
@@ -1261,15 +1447,6 @@ export default function Movilidades() {
                   <p className="text-sm font-medium text-slate-500">Kilometraje</p>
                   <p className="text-base text-slate-900 dark:text-white">{selectedTicket.kilometraje_actual.toLocaleString()} km</p>
                 </div>
-                <div className="space-y-1 col-span-2">
-                  <p className="text-sm font-medium text-slate-500">Rendimiento</p>
-                  <div className="flex items-center gap-2">
-                    {selectedTicket?.rendimiento && getRendimientoBadge(selectedTicket.rendimiento)}
-                    <span className="text-sm text-slate-600">
-                      ({selectedTicket?.rendimiento && (selectedTicket.rendimiento > 10 ? 'Excelente' : selectedTicket.rendimiento > 7 ? 'Bueno' : 'Revisar')})
-                    </span>
-                  </div>
-                </div>
               </div>
               <div className="border-t pt-4">
                 <p className="text-xs text-slate-500">Registrado: {new Date(selectedTicket.created_at).toLocaleString('es-AR')}</p>
@@ -1298,7 +1475,7 @@ export default function Movilidades() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-slate-500">Categoría</p>
-                  <Badge variant="secondary" className="text-sm">{selectedConsumible.categoria}</Badge>
+                  <p className="text-base text-slate-900 dark:text-white">{selectedConsumible.categoria}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-slate-500">Unidad</p>
@@ -1329,6 +1506,165 @@ export default function Movilidades() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedConsumible(null)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Agregar Historial Mecánico */}
+      <Dialog open={isAddHistorialOpen} onOpenChange={setIsAddHistorialOpen}>
+        <DialogContent className="max-w-2xl bg-white dark:bg-slate-800">
+          <DialogHeader>
+            <DialogTitle>Nuevo Registro Mecánico</DialogTitle>
+            <DialogDescription>Registra un trabajo mecánico realizado</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Vehículo *</Label>
+                <Select value={newHistorial.vehiculo_id} onValueChange={(value) => setNewHistorial({ ...newHistorial, vehiculo_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar vehículo" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-slate-800">
+                    {vehiculos.map((v) => (
+                      <SelectItem key={v.id} value={v.id} className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">
+                        {v.patente} - {v.marca} {v.modelo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Fecha *</Label>
+                <Input
+                  type="date"
+                  value={newHistorial.fecha || ""}
+                  onChange={(e) => setNewHistorial({ ...newHistorial, fecha: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo de Trabajo *</Label>
+                <Select value={newHistorial.tipo_trabajo} onValueChange={(value) => setNewHistorial({ ...newHistorial, tipo_trabajo: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-slate-800">
+                    <SelectItem value="Mantenimiento" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Mantenimiento</SelectItem>
+                    <SelectItem value="Reparación" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Reparación</SelectItem>
+                    <SelectItem value="Revisión" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Revisión</SelectItem>
+                    <SelectItem value="Cambio de Aceite" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Cambio de Aceite</SelectItem>
+                    <SelectItem value="Neumáticos" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Neumáticos</SelectItem>
+                    <SelectItem value="Frenos" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Frenos</SelectItem>
+                    <SelectItem value="Otro" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Taller</Label>
+                <Input
+                  placeholder="Nombre del taller"
+                  value={newHistorial.taller || ""}
+                  onChange={(e) => setNewHistorial({ ...newHistorial, taller: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Descripción *</Label>
+              <Input
+                placeholder="Describe el trabajo realizado"
+                value={newHistorial.descripcion || ""}
+                onChange={(e) => setNewHistorial({ ...newHistorial, descripcion: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Costo (opcional)</Label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={newHistorial.costo || ""}
+                onChange={(e) => setNewHistorial({ ...newHistorial, costo: e.target.value ? Number(e.target.value) : undefined })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsAddHistorialOpen(false);
+              setNewHistorial({ fecha: new Date().toISOString().split('T')[0], tipo_trabajo: "Mantenimiento" });
+            }}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (!newHistorial.vehiculo_id || !newHistorial.fecha || !newHistorial.tipo_trabajo || !newHistorial.descripcion) {
+                  alert("Por favor completa los campos requeridos");
+                  return;
+                }
+                try {
+                  // await invoke("create_historial_mecanico", { data: newHistorial });
+                  alert("Registro agregado exitosamente");
+                  setIsAddHistorialOpen(false);
+                  setNewHistorial({ fecha: new Date().toISOString().split('T')[0], tipo_trabajo: "Mantenimiento" });
+                  await loadData();
+                } catch (error) {
+                  alert("Error al agregar registro: " + error);
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Agregar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Ver Historial Mecánico */}
+      <Dialog open={!!selectedHistorial} onOpenChange={() => setSelectedHistorial(null)}>
+        <DialogContent className="max-w-2xl bg-white dark:bg-slate-800">
+          <DialogHeader>
+            <DialogTitle>Detalles del Registro Mecánico</DialogTitle>
+            <DialogDescription>Información del trabajo realizado</DialogDescription>
+          </DialogHeader>
+          {selectedHistorial && (
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-slate-500">Vehículo</p>
+                  <p className="text-xl font-mono font-semibold text-slate-900 dark:text-white">{selectedHistorial.vehiculo_patente}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-slate-500">Fecha</p>
+                  <p className="text-base text-slate-900 dark:text-white">{formatDate(selectedHistorial.fecha)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-slate-500">Tipo de Trabajo</p>
+                  <p className="text-base text-slate-900 dark:text-white">{selectedHistorial.tipo_trabajo}</p>
+                </div>
+                {selectedHistorial.taller && (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-slate-500">Taller</p>
+                    <p className="text-base text-slate-900 dark:text-white">{selectedHistorial.taller}</p>
+                  </div>
+                )}
+                {selectedHistorial.costo && (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-slate-500">Costo</p>
+                    <p className="text-2xl font-bold text-blue-600">${selectedHistorial.costo.toLocaleString()}</p>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-500">Descripción</p>
+                <p className="text-base text-slate-900 dark:text-white">{selectedHistorial.descripcion}</p>
+              </div>
+              <div className="border-t pt-4">
+                <p className="text-xs text-slate-500">Registrado: {new Date(selectedHistorial.created_at).toLocaleString('es-AR')}</p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedHistorial(null)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

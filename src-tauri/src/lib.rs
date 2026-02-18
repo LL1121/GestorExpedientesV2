@@ -80,6 +80,7 @@ pub fn run() {
                     commands::crear_orden_compra,
                     commands::obtener_ordenes_compra,
                     commands::generar_pdf,
+                    commands::generar_excel,
                     // Commands de Vehículos
                     commands::get_all_vehiculos,
                     commands::get_vehiculo,
