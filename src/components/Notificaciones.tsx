@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Bell, AlertCircle, Clock, CreditCard, CheckCircle, X, ChevronDown } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { AlertCircle, Clock, CreditCard, CheckCircle, ChevronDown, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { SkeletonCard, SkeletonSection } from "@/components/Skeleton";
 
 interface Alerta {
   id: string;
@@ -39,6 +40,183 @@ interface NotificacionesProps {
   onNotificationCountChange?: (count: number) => void;
 }
 
+// Datos hardcodeados para testing
+const MOCK_NOTIFICACIONES: NotificacionesResponse = {
+  stats: {
+    total: 45,
+    vencidos: 3,
+    proximos_vencer: 5,
+    sin_pagar: 2,
+    pendientes: 8,
+    criticos: 10,
+    por_estado: {
+      "Iniciado": 5,
+      "EnProceso": 20,
+      "EnRevision": 8,
+      "Finalizado": 10,
+      "Observado": 2
+    },
+    por_tipo: {
+      "InfoGov": 15,
+      "Pago": 10,
+      "Interno": 12,
+      "Gde": 8
+    }
+  },
+  alertas: {
+    vencidos: [
+      {
+        id: "1",
+        numero: "EXP-001",
+        año: 2026,
+        asunto: "Solicitud de compra de materiales de construcción",
+        estado: "EnProceso",
+        dias_vencido: 5
+      },
+      {
+        id: "2",
+        numero: "EXP-002",
+        año: 2026,
+        asunto: "Resolución de conflicto laboral",
+        estado: "Observado",
+        dias_vencido: 3
+      },
+      {
+        id: "3",
+        numero: "EXP-003",
+        año: 2026,
+        asunto: "Autorización de gastos especiales",
+        estado: "EnProceso",
+        dias_vencido: 12
+      }
+    ],
+    proximos_vencer: [
+      {
+        id: "4",
+        numero: "EXP-004",
+        año: 2026,
+        asunto: "Trámite de licencia municipal",
+        estado: "Iniciado",
+        dias_para_vencer: 3
+      },
+      {
+        id: "5",
+        numero: "EXP-005",
+        año: 2026,
+        asunto: "Inspección de seguridad",
+        estado: "EnProceso",
+        dias_para_vencer: 2
+      },
+      {
+        id: "6",
+        numero: "EXP-006",
+        año: 2026,
+        asunto: "Certificación de conformidad",
+        estado: "EnRevision",
+        dias_para_vencer: 7
+      },
+      {
+        id: "7",
+        numero: "EXP-007",
+        año: 2026,
+        asunto: "Renovación de permisos",
+        estado: "Iniciado",
+        dias_para_vencer: 1
+      },
+      {
+        id: "8",
+        numero: "EXP-008",
+        año: 2026,
+        asunto: "Aprobación de presupuesto anual",
+        estado: "EnProceso",
+        dias_para_vencer: 4
+      }
+    ],
+    sin_pagar: [
+      {
+        id: "9",
+        numero: "PAG-001",
+        año: 2026,
+        asunto: "Orden de compra - Equipos informáticos",
+        estado: "EnProceso"
+      },
+      {
+        id: "10",
+        numero: "PAG-002",
+        año: 2026,
+        asunto: "Factura por servicios profesionales",
+        estado: "Iniciado"
+      }
+    ],
+    pendientes: [
+      {
+        id: "11",
+        numero: "EXP-009",
+        año: 2026,
+        asunto: "Evaluación de ofertas de proveedores",
+        estado: "Iniciado",
+        dias_pendiente: 21
+      },
+      {
+        id: "12",
+        numero: "EXP-010",
+        año: 2026,
+        asunto: "Revisión de documentación técnica",
+        estado: "EnProceso",
+        dias_pendiente: 18
+      },
+      {
+        id: "13",
+        numero: "EXP-011",
+        año: 2026,
+        asunto: "Coordinación con dependencias",
+        estado: "EnProceso",
+        dias_pendiente: 15
+      },
+      {
+        id: "14",
+        numero: "EXP-012",
+        año: 2026,
+        asunto: "Preparación de reportes mensuales",
+        estado: "Iniciado",
+        dias_pendiente: 22
+      },
+      {
+        id: "15",
+        numero: "EXP-013",
+        año: 2026,
+        asunto: "Auditoría de procesos internos",
+        estado: "EnProceso",
+        dias_pendiente: 16
+      },
+      {
+        id: "16",
+        numero: "EXP-014",
+        año: 2026,
+        asunto: "Validación de sistemas",
+        estado: "EnProceso",
+        dias_pendiente: 20
+      },
+      {
+        id: "17",
+        numero: "EXP-015",
+        año: 2026,
+        asunto: "Planificación estratégica 2026",
+        estado: "Iniciado",
+        dias_pendiente: 28
+      },
+      {
+        id: "18",
+        numero: "EXP-016",
+        año: 2026,
+        asunto: "Capacitación del personal",
+        estado: "EnProceso",
+        dias_pendiente: 19
+      }
+    ]
+  }
+};
+
 export default function Notificaciones({ onSelectExpediente, onNotificationCountChange }: NotificacionesProps) {
   const [notificaciones, setNotificaciones] = useState<NotificacionesResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,11 +237,22 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
   const cargarNotificaciones = async () => {
     try {
       setLoading(true);
-      const result = await window.__TAURI__?.invoke('get_expedientes_notificaciones') as NotificacionesResponse;
-      if (result) {
-        setNotificaciones(result);
-        // Notificar al padre del nuevo conteo
-        onNotificationCountChange?.(result.stats.criticos);
+      
+      // Simular delay de red de 1.5 segundos para ver el spinner
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Intentar obtener datos reales, si falla usar MOCK
+      try {
+        const result = await (window as any).__TAURI__?.invoke('get_expedientes_notificaciones') as NotificacionesResponse;
+        if (result) {
+          setNotificaciones(result);
+          onNotificationCountChange?.(result.stats.criticos);
+        }
+      } catch (err) {
+        console.error("Error obteniendo notificaciones reales, usando mock:", err);
+        // Si falla, usar datos mock
+        setNotificaciones(MOCK_NOTIFICACIONES);
+        onNotificationCountChange?.(MOCK_NOTIFICACIONES.stats.criticos);
       }
     } catch (err) {
       console.error("Error cargando notificaciones:", err);
@@ -98,17 +287,6 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
       [section]: !prev[section]
     }));
   };
-
-  if (loading && !notificaciones) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <Bell className="w-12 h-12 mx-auto text-slate-300 mb-4 animate-pulse" />
-          <p className="text-slate-600 dark:text-slate-400">Cargando notificaciones...</p>
-        </div>
-      </div>
-    );
-  }
 
   // Si aún no hay notificaciones después de cargar, usar estado vacío
   const stats = notificaciones?.stats || {
@@ -174,54 +352,81 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
 
   return (
     <div className="space-y-4 p-4">
-      {/* Resumen de Alertas */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-        <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 p-3 rounded-lg border border-red-200 dark:border-red-800">
-          <div className="text-2xl font-bold text-red-700 dark:text-red-300">
-            {stats.vencidos}
-          </div>
-          <div className="text-xs text-red-600 dark:text-red-400">Vencidos</div>
-        </div>
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 p-3 rounded-lg border border-orange-200 dark:border-orange-800">
-          <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-            {stats.proximos_vencer}
-          </div>
-          <div className="text-xs text-orange-600 dark:text-orange-400">Por Vencer</div>
-        </div>
-        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800">
-          <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
-            {stats.sin_pagar}
-          </div>
-          <div className="text-xs text-yellow-600 dark:text-yellow-400">Sin Pagar</div>
-        </div>
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-          <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-            {stats.pendientes}
-          </div>
-          <div className="text-xs text-blue-600 dark:text-blue-400">Pendientes</div>
-        </div>
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
-          <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-            {stats.criticos}
-          </div>
-          <div className="text-xs text-purple-600 dark:text-purple-400">Críticos</div>
-        </div>
-      </div>
-
-      {/* Acciones */}
-      <div className="flex gap-2">
+      {/* Botón de refrescar */}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Notificaciones</h2>
         <Button
           onClick={cargarNotificaciones}
           disabled={loading}
-          size="sm"
           variant="outline"
+          size="sm"
+          className="gap-2"
         >
-          {loading ? "Cargando..." : "Actualizar"}
+          <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+          {loading ? "Actualizando..." : "Actualizar"}
         </Button>
       </div>
 
-      {/* Secciones de Alertas */}
-      <div className="space-y-4">
+      {/* Mostrar loader mientras carga */}
+      {loading && !notificaciones && (
+        <div className="space-y-4">
+          <LoadingSpinner size="md" text="Cargando notificaciones..." />
+          
+          {/* Skeleton de tarjetas */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-6">
+            {[...Array(5)].map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+
+          {/* Skeleton de secciones */}
+          <div className="space-y-3 mt-6">
+            {[...Array(3)].map((_, i) => (
+              <SkeletonSection key={i} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Mostrar contenido cuando está listo */}
+      {!loading && notificaciones && (
+        <>
+          {/* Resumen de Alertas */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 animate-in fade-in duration-300">
+            <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 p-3 rounded-lg border border-red-200 dark:border-red-800">
+              <div className="text-2xl font-bold text-red-700 dark:text-red-300">
+                {stats.vencidos}
+              </div>
+              <div className="text-xs text-red-600 dark:text-red-400">Vencidos</div>
+            </div>
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 p-3 rounded-lg border border-orange-200 dark:border-orange-800">
+              <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                {stats.proximos_vencer}
+              </div>
+              <div className="text-xs text-orange-600 dark:text-orange-400">Por Vencer</div>
+            </div>
+            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800">
+              <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
+                {stats.sin_pagar}
+              </div>
+              <div className="text-xs text-yellow-600 dark:text-yellow-400">Sin Pagar</div>
+            </div>
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                {stats.pendientes}
+              </div>
+              <div className="text-xs text-blue-600 dark:text-blue-400">Pendientes</div>
+            </div>
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+              <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                {stats.criticos}
+              </div>
+              <div className="text-xs text-purple-600 dark:text-purple-400">Críticos</div>
+            </div>
+          </div>
+
+          {/* Secciones de Alertas */}
+          <div className="space-y-3">
         {/* VENCIDOS */}
         {(alertas.vencidos.length > 0 || alertas.proximos_vencer.length > 0) && (
           <div className="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden">
@@ -337,15 +542,17 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
             )}
           </div>
         )}
-      </div>
+          </div>
 
-      {/* Sin alertas */}
-      {stats.criticos === 0 && (
-        <div className="text-center py-12 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-          <CheckCircle className="w-12 h-12 mx-auto text-green-600 dark:text-green-400 mb-3" />
-          <p className="text-green-900 dark:text-green-100 font-semibold">¡Todo al día!</p>
-          <p className="text-green-700 dark:text-green-300 text-sm">No hay expedientes que requieran atención</p>
-        </div>
+          {/* Sin alertas */}
+          {stats.criticos === 0 && (
+            <div className="text-center py-12 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+              <CheckCircle className="w-12 h-12 mx-auto text-green-600 dark:text-green-400 mb-3" />
+              <p className="text-green-900 dark:text-green-100 font-semibold">¡Todo al día!</p>
+              <p className="text-green-700 dark:text-green-300 text-sm">No hay expedientes que requieran atención</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
