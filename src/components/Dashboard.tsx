@@ -71,6 +71,7 @@ import FormularioOC from "@/components/FormularioOC";
 import PreviewOC from "@/components/PreviewOC";
 import ConfigTopes from "@/components/ConfigTopes";
 import Notificaciones from "@/components/Notificaciones";
+import NotificationBellIcon from "@/components/NotificationBellIcon";
 import { ToastContainer, useToast } from "@/components/Toast";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
@@ -447,7 +448,7 @@ export default function Dashboard() {
             { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" as ActiveView },
             { icon: Truck, label: "Movilidades", view: "movilidades" as ActiveView },
             { icon: Users, label: "Personal", view: "personal" as ActiveView },
-            { icon: Bell, label: "Notificaciones", view: "notificaciones" as ActiveView, badge: notificationCount },
+            { icon: null, label: "Notificaciones", view: "notificaciones" as ActiveView, customIcon: true },
             { icon: BarChart3, label: "Analíticas", view: "analiticas" as ActiveView },
             { icon: Settings, label: "Configuración", view: "configuracion" as ActiveView },
           ].map((item, idx) => (
@@ -460,11 +461,10 @@ export default function Dashboard() {
               )}
             >
               <div className="relative">
-                <item.icon className="h-5 w-5 shrink-0" />
-                {item.badge && item.badge > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                    {item.badge > 9 ? '9+' : item.badge}
-                  </span>
+                {item.customIcon ? (
+                  <NotificationBellIcon count={notificationCount} className="h-5 w-5 shrink-0" />
+                ) : (
+                  item.icon && <item.icon className="h-5 w-5 shrink-0" />
                 )}
               </div>
               {!sidebarCollapsed && <span>{item.label}</span>}

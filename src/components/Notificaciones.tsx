@@ -41,7 +41,7 @@ interface NotificacionesProps {
 
 export default function Notificaciones({ onSelectExpediente, onNotificationCountChange }: NotificacionesProps) {
   const [notificaciones, setNotificaciones] = useState<NotificacionesResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [expandedSections, setExpandedSections] = useState({
     vencidos: true,
     proximos_vencer: true,
@@ -60,11 +60,33 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
     try {
       setLoading(true);
       const result = await window.__TAURI__?.invoke('get_expedientes_notificaciones') as NotificacionesResponse;
-      setNotificaciones(result);
-      // Notificar al padre del nuevo conteo
-      onNotificationCountChange?.(result.stats.criticos);
+      if (result) {
+        setNotificaciones(result);
+        // Notificar al padre del nuevo conteo
+        onNotificationCountChange?.(result.stats.criticos);
+      }
     } catch (err) {
       console.error("Error cargando notificaciones:", err);
+      // Si hay error, mostrar notificaciones vacías
+      setNotificaciones({
+        stats: {
+          total: 0,
+          vencidos: 0,
+          proximos_vencer: 0,
+          sin_pagar: 0,
+          pendientes: 0,
+          criticos: 0,
+          por_estado: {},
+          por_tipo: {}
+        },
+        alertas: {
+          vencidos: [],
+          proximos_vencer: [],
+          sin_pagar: [],
+          pendientes: []
+        }
+      });
+      onNotificationCountChange?.(0);
     } finally {
       setLoading(false);
     }
@@ -77,19 +99,35 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
     }));
   };
 
-  if (!notificaciones) {
+  if (loading && !notificaciones) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <Bell className="w-12 h-12 mx-auto text-slate-300 mb-4" />
+          <Bell className="w-12 h-12 mx-auto text-slate-300 mb-4 animate-pulse" />
           <p className="text-slate-600 dark:text-slate-400">Cargando notificaciones...</p>
         </div>
       </div>
     );
   }
 
-  const stats = notificaciones.stats;
-  const alertas = notificaciones.alertas;
+  // Si aún no hay notificaciones después de cargar, usar estado vacío
+  const stats = notificaciones?.stats || {
+    total: 0,
+    vencidos: 0,
+    proximos_vencer: 0,
+    sin_pagar: 0,
+    pendientes: 0,
+    criticos: 0,
+    por_estado: {},
+    por_tipo: {}
+  };
+  
+  const alertas = notificaciones?.alertas || {
+    vencidos: [],
+    proximos_vencer: [],
+    sin_pagar: [],
+    pendientes: []
+  };
 
   const renderAlerta = (alerta: Alerta, tipo: string) => (
     <div
