@@ -1,6 +1,7 @@
-import { useState, useEffect, type ElementType, type MouseEvent } from "react";
+import { useState, useEffect, useRef, type ElementType, type MouseEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { listen } from "@tauri-apps/api/event";
 import {
   Search,
   LayoutDashboard,
@@ -35,6 +36,8 @@ import {
   User,
   CreditCard,
   Package,
+  File,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +70,7 @@ import Personal from "@/components/Personal";
 import FormularioOC from "@/components/FormularioOC";
 import PreviewOC from "@/components/PreviewOC";
 import ConfigTopes from "@/components/ConfigTopes";
+import { ToastContainer, useToast } from "@/components/Toast";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
 type ActiveView = "dashboard" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc" | "preview-oc";
@@ -75,6 +79,8 @@ export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<Expediente | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingExpediente, setEditingExpediente] = useState<Expediente | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [isOnline] = useState(true);
@@ -87,6 +93,8 @@ export default function Dashboard() {
   const [ocRenglones, setOcRenglones] = useState<any[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [pdfGenerationStatus, setPdfGenerationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const lastPdfRequestRef = useRef<string | null>(null);
+  const lastPdfPathRef = useRef<string | null>(null);
   const [newExpediente, setNewExpediente] = useState<Partial<CreateExpedienteInput> & { estado?: EstadoExpediente }>({
     prioridad: "Media",
     fecha_inicio: new Date().toISOString().split('T')[0],
@@ -103,6 +111,9 @@ export default function Dashboard() {
     y: number;
     items: { label: string; icon?: ElementType; onClick: () => void; danger?: boolean }[];
   }>({ visible: false, x: 0, y: 0, items: [] });
+
+  // Sistema de Toast
+  const { toasts, removeToast, success: showSuccess, error: showError, info: showInfo } = useToast();
 
   const formatError = (err: unknown) => {
     if (err instanceof Error) return err.message;
@@ -151,6 +162,54 @@ export default function Dashboard() {
     };
   }, []);
 
+  // Escuchar eventos del atajo Alt+I (expediente procesado desde InfoGov)
+  useEffect(() => {
+    const unlisteners: (() => void)[] = [];
+
+    const setupListeners = async () => {
+      try {
+        // Evento: Expediente procesado correctamente
+        const unlisten1 = await listen<any>('expediente_procesado', (event) => {
+          const { resumen, nro_infogov, mensaje } = event.payload;
+          console.log("📋 Expediente procesado:", nro_infogov, resumen);
+          
+          showSuccess(mensaje || "Expediente capturado desde InfoGov", `${resumen}`);
+          
+          // Recargar lista de expedientes
+          loadExpedientes();
+          
+          // Mostrar detalles en la UI
+          if (nro_infogov) {
+            showInfo("El expediente está disponible en la lista", "Presiona Alt+I nuevamente o busca por el número");
+          }
+        });
+        unlisteners.push(unlisten1);
+
+        // Evento: Error al procesar expediente
+        const unlisten2 = await listen<any>('expediente_error', (event) => {
+          const { error, timestamp } = event.payload;
+          console.error("❌ Error procesando expediente:", error);
+          
+          showError(
+            "Error al capturar desde InfoGov",
+            error || "No se pudo procesar el contenido del portapapeles"
+          );
+        });
+        unlisteners.push(unlisten2);
+
+        console.log("✅ Listeners de eventos configurados");
+      } catch (err) {
+        console.error("Error configurando listeners:", err);
+      }
+    };
+
+    setupListeners();
+
+    return () => {
+      unlisteners.forEach(unlisten => unlisten());
+    };
+  }, [showSuccess, showError, showInfo]);
+
   const loadExpedientes = async () => {
     try {
       setLoading(true);
@@ -180,6 +239,49 @@ export default function Dashboard() {
       await loadExpedientes();
     } catch (err) {
       alert("Error al crear expediente: " + formatError(err));
+    }
+  };
+
+  const handleUpdateExpediente = async () => {
+    try {
+      if (!editingExpediente) return;
+      
+      const updateData: any = {
+        archivo: editingExpediente.archivo,
+        nro_infogov: editingExpediente.nro_infogov,
+        tema: editingExpediente.tema,
+        nro_gde: editingExpediente.nro_gde,
+        fecha_pase: editingExpediente.fecha_pase,
+        oficina: editingExpediente.oficina,
+        buzon_grupal: editingExpediente.buzon_grupal,
+        hacer: editingExpediente.hacer,
+        asunto: editingExpediente.asunto,
+        descripcion: editingExpediente.descripcion,
+        caratula: editingExpediente.caratula,
+        resolucion_nro: editingExpediente.resolucion_nro,
+        prioridad: editingExpediente.prioridad,
+        estado: editingExpediente.estado,
+        fecha_vencimiento: editingExpediente.fecha_vencimiento,
+        observaciones: editingExpediente.observaciones,
+      };
+
+      // Si es expediente de Pago, incluir campos de OC y factura
+      if (editingExpediente.tipo === "Pago") {
+        updateData.oc_señor = editingExpediente.oc_señor;
+        updateData.oc_domicilio = editingExpediente.oc_domicilio;
+        updateData.oc_cuit = editingExpediente.oc_cuit;
+        updateData.oc_descripcion_zona = editingExpediente.oc_descripcion_zona;
+        updateData.oc_forma_pago = editingExpediente.oc_forma_pago;
+        updateData.oc_plazo_entrega = editingExpediente.oc_plazo_entrega;
+        updateData.factura_path = editingExpediente.factura_path;
+      }
+
+      await ExpedienteService.update(editingExpediente.id, updateData);
+      setIsEditDialogOpen(false);
+      setEditingExpediente(null);
+      await loadExpedientes();
+    } catch (err) {
+      alert("Error al actualizar expediente: " + formatError(err));
     }
   };
 
@@ -503,16 +605,19 @@ export default function Dashboard() {
                       ID Expediente
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                      Archivo
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                      Tema
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                      Oficina
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Asunto
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Tipo
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Última Actualización
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Área
                     </th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Acciones
@@ -596,18 +701,21 @@ export default function Dashboard() {
                         </span>
                       </td>
                       <td className="py-4 px-4">
+                        <span className="text-sm text-slate-600 truncate max-w-xs">{record.archivo || "-"}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-sm text-slate-600 truncate max-w-xs">{record.tema || "-"}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-sm text-slate-600 truncate max-w-xs">{record.oficina || "-"}</span>
+                      </td>
+                      <td className="py-4 px-4">
                         <span className="text-sm font-medium text-slate-900 line-clamp-1">{record.asunto}</span>
                       </td>
                       <td className="py-4 px-4">
                         <Badge variant={record.tipo === "InfoGov" || record.tipo === "Gde" ? "default" : "secondary"} className="text-xs">
                           {record.tipo}
                         </Badge>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className="text-sm text-slate-600">{formatDate(record.updated_at)}</span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className="text-sm text-slate-600">{record.area_responsable}</span>
                       </td>
                       <td className="py-4 px-4 text-right">
                         <DropdownMenu>
@@ -621,17 +729,20 @@ export default function Dashboard() {
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg">
                             <DropdownMenuItem
+                              className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 focus:bg-slate-100 dark:focus:bg-slate-700"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                alert("Edición - Próximamente disponible");
+                                setEditingExpediente(record);
+                                setIsEditDialogOpen(true);
                               }}
                             >
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 focus:bg-slate-100 dark:focus:bg-slate-700"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 alert("Descarga - Próximamente disponible");
@@ -642,7 +753,7 @@ export default function Dashboard() {
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
-                              className="text-destructive"
+                              className="text-red-600 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 focus:bg-red-50 dark:focus:bg-red-900/20"
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 if (confirm(`¿Eliminar expediente ${record.numero}-${record.año}?`)) {
@@ -953,9 +1064,17 @@ export default function Dashboard() {
                     es_iva_inscripto: ocDraft.es_iva_inscripto,
                   };
                   
-                  const pdfPath = await invoke<string>('generar_pdf', { data: pdfRequest });
-                  await openPath(pdfPath);
-                  setPdfGenerationStatus('success');
+                  const requestKey = JSON.stringify(pdfRequest);
+                  if (lastPdfRequestRef.current === requestKey && lastPdfPathRef.current) {
+                    await openPath(lastPdfPathRef.current);
+                    setPdfGenerationStatus('success');
+                  } else {
+                    const pdfPath = await invoke<string>('generar_pdf', { data: pdfRequest });
+                    lastPdfRequestRef.current = requestKey;
+                    lastPdfPathRef.current = pdfPath;
+                    await openPath(pdfPath);
+                    setPdfGenerationStatus('success');
+                  }
                   
                   // Volver al dashboard inmediatamente después del éxito
                   setTimeout(() => {
@@ -1228,6 +1347,50 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Archivo y Tema */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="archivo">Archivo</Label>
+                <Input
+                  id="archivo"
+                  placeholder="Nombre del archivo"
+                  value={newExpediente.archivo || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, archivo: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tema">Tema</Label>
+                <Input
+                  id="tema"
+                  placeholder="Tema del expediente"
+                  value={newExpediente.tema || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, tema: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Nro InfoGov y Nro GDE */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="nro_infogov">Nro InfoGov</Label>
+                <Input
+                  id="nro_infogov"
+                  placeholder="IF-2026-00000001"
+                  value={newExpediente.nro_infogov || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, nro_infogov: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nro_gde">Nro GDE</Label>
+                <Input
+                  id="nro_gde"
+                  placeholder="EX-2026-00000001"
+                  value={newExpediente.nro_gde || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, nro_gde: e.target.value })}
+                />
+              </div>
+            </div>
+
             {/* Asunto */}
             <div className="space-y-2">
               <Label htmlFor="asunto">Asunto *</Label>
@@ -1251,7 +1414,51 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Área Responsable y Fecha de Inicio */}
+            {/* Fecha de Inicio y Fecha de Pase */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="fecha_inicio">Fecha de Inicio *</Label>
+                <Input
+                  id="fecha_inicio"
+                  type="date"
+                  value={newExpediente.fecha_inicio || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, fecha_inicio: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fecha_pase">Fecha de Pase</Label>
+                <Input
+                  id="fecha_pase"
+                  type="date"
+                  value={newExpediente.fecha_pase || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, fecha_pase: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Oficina y Buzón Grupal */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="oficina">Oficina</Label>
+                <Input
+                  id="oficina"
+                  placeholder="Oficina responsable"
+                  value={newExpediente.oficina || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, oficina: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="buzon_grupal">Buzón Grupal</Label>
+                <Input
+                  id="buzon_grupal"
+                  placeholder="Buzón grupal asignado"
+                  value={newExpediente.buzon_grupal || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, buzon_grupal: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Área Responsable y Hacer */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="area">Área Responsable *</Label>
@@ -1263,12 +1470,12 @@ export default function Dashboard() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="fecha_inicio">Fecha de Inicio *</Label>
+                <Label htmlFor="hacer">Hacer</Label>
                 <Input
-                  id="fecha_inicio"
-                  type="date"
-                  value={newExpediente.fecha_inicio || ""}
-                  onChange={(e) => setNewExpediente({ ...newExpediente, fecha_inicio: e.target.value })}
+                  id="hacer"
+                  placeholder="Acción a realizar"
+                  value={newExpediente.hacer || ""}
+                  onChange={(e) => setNewExpediente({ ...newExpediente, hacer: e.target.value })}
                 />
               </div>
             </div>
@@ -1344,6 +1551,29 @@ export default function Dashboard() {
                     />
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="factura_path">Factura (opcional)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="factura_path"
+                      placeholder="Ruta o nombre del archivo de factura"
+                      className="bg-slate-50"
+                      value={newExpediente.factura_path || ""}
+                      onChange={(e) => setNewExpediente({ ...newExpediente, factura_path: e.target.value })}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                      title="Adjuntar factura"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500">Puedes ingresar la ruta del archivo o adjuntar un documento</p>
+                </div>
               </div>
             )}
           </div>
@@ -1352,8 +1582,377 @@ export default function Dashboard() {
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateExpediente} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleCreateExpediente} className="bg-blue-600 hover:bg-blue-700 text-white">
               Crear Expediente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Editar Expediente */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+          <DialogHeader>
+            <DialogTitle>Editar Expediente</DialogTitle>
+            <DialogDescription>
+              Modifica los datos del expediente. Los campos con * son obligatorios.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingExpediente && (
+            <div className="grid gap-4 py-4">
+              {/* Número y Año */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_numero">Número *</Label>
+                  <Input
+                    id="edit_numero"
+                    placeholder="123"
+                    value={editingExpediente.numero || ""}
+                    disabled
+                    className="bg-slate-100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_año">Año *</Label>
+                  <Input
+                    id="edit_año"
+                    type="number"
+                    placeholder="2024"
+                    value={editingExpediente.año || ""}
+                    disabled
+                    className="bg-slate-100"
+                  />
+                </div>
+              </div>
+
+              {/* Tipo */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_tipo">Tipo *</Label>
+                <Input
+                  id="edit_tipo"
+                  value={editingExpediente.tipo || ""}
+                  disabled
+                  className="bg-slate-100"
+                />
+              </div>
+
+              {/* Archivo y Tema */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_archivo">Archivo</Label>
+                  <Input
+                    id="edit_archivo"
+                    placeholder="Nombre del archivo"
+                    value={editingExpediente.archivo || ""}
+                    onChange={(e) => setEditingExpediente({ ...editingExpediente, archivo: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_tema">Tema</Label>
+                  <Input
+                    id="edit_tema"
+                    placeholder="Tema del expediente"
+                    value={editingExpediente.tema || ""}
+                    onChange={(e) => setEditingExpediente({ ...editingExpediente, tema: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Nro InfoGov y Nro GDE */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_nro_infogov">Nro InfoGov</Label>
+                  <Input
+                    id="edit_nro_infogov"
+                    placeholder="IF-2026-00000001"
+                    value={editingExpediente.nro_infogov || ""}
+                    onChange={(e) => setEditingExpediente({ ...editingExpediente, nro_infogov: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_nro_gde">Nro GDE</Label>
+                  <Input
+                    id="edit_nro_gde"
+                    placeholder="EX-2026-00000001"
+                    value={editingExpediente.nro_gde || ""}
+                    onChange={(e) => setEditingExpediente({ ...editingExpediente, nro_gde: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Caratula y Resolución */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_caratula">Carátula</Label>
+                  <Input
+                    id="edit_caratula"
+                    placeholder="Carátula del expediente"
+                    value={editingExpediente.caratula || ""}
+                    onChange={(e) => setEditingExpediente({ ...editingExpediente, caratula: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_resolucion_nro">Nro. Resolución</Label>
+                  <Input
+                    id="edit_resolucion_nro"
+                    placeholder="RES-2026-0001"
+                    value={editingExpediente.resolucion_nro || ""}
+                    onChange={(e) => setEditingExpediente({ ...editingExpediente, resolucion_nro: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Asunto */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_asunto">Asunto *</Label>
+                <Input
+                  id="edit_asunto"
+                  placeholder="Breve descripción del asunto"
+                  value={editingExpediente.asunto || ""}
+                  onChange={(e) => setEditingExpediente({ ...editingExpediente, asunto: e.target.value })}
+                />
+              </div>
+
+              {/* Descripción */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_descripcion">Descripción</Label>
+                <Textarea
+                  id="edit_descripcion"
+                  placeholder="Detalles adicionales del expediente..."
+                  value={editingExpediente.descripcion || ""}
+                  onChange={(e) => setEditingExpediente({ ...editingExpediente, descripcion: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              {/* Fecha de Pase */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_fecha_pase">Fecha de Pase</Label>
+                <Input
+                  id="edit_fecha_pase"
+                  type="date"
+                  value={editingExpediente.fecha_pase || ""}
+                  onChange={(e) => setEditingExpediente({ ...editingExpediente, fecha_pase: e.target.value })}
+                />
+              </div>
+
+              {/* Oficina y Buzón Grupal */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_oficina">Oficina</Label>
+                  <Input
+                    id="edit_oficina"
+                    placeholder="Oficina responsable"
+                    value={editingExpediente.oficina || ""}
+                    onChange={(e) => setEditingExpediente({ ...editingExpediente, oficina: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_buzon_grupal">Buzón Grupal</Label>
+                  <Input
+                    id="edit_buzon_grupal"
+                    placeholder="Buzón grupal asignado"
+                    value={editingExpediente.buzon_grupal || ""}
+                    onChange={(e) => setEditingExpediente({ ...editingExpediente, buzon_grupal: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Hacer */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_hacer">Hacer</Label>
+                <Input
+                  id="edit_hacer"
+                  placeholder="Acción a realizar"
+                  value={editingExpediente.hacer || ""}
+                  onChange={(e) => setEditingExpediente({ ...editingExpediente, hacer: e.target.value })}
+                />
+              </div>
+
+              {/* Área responsable */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_area_responsable">Área Responsable *</Label>
+                <Input
+                  id="edit_area_responsable"
+                  placeholder="Ej: Administración"
+                  value={editingExpediente.area_responsable || ""}
+                  disabled
+                  className="bg-slate-100"
+                />
+              </div>
+
+              {/* Prioridad */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_prioridad">Prioridad *</Label>
+                <Select 
+                  value={editingExpediente.prioridad} 
+                  onValueChange={(value) => setEditingExpediente({ ...editingExpediente, prioridad: value as Prioridad })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Baja">Baja</SelectItem>
+                    <SelectItem value="Media">Media</SelectItem>
+                    <SelectItem value="Alta">Alta</SelectItem>
+                    <SelectItem value="Urgente">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Estado */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_estado">Estado</Label>
+                <Select 
+                  value={editingExpediente.estado} 
+                  onValueChange={(value) => setEditingExpediente({ ...editingExpediente, estado: value as EstadoExpediente })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Iniciado">Iniciado</SelectItem>
+                    <SelectItem value="EnProceso">En Proceso</SelectItem>
+                    <SelectItem value="EnRevision">En Revisión</SelectItem>
+                    <SelectItem value="Observado">Observado</SelectItem>
+                    <SelectItem value="Finalizado">Finalizado</SelectItem>
+                    <SelectItem value="Archivado">Archivado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Fecha de vencimiento */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_fecha_vencimiento">Fecha de Vencimiento</Label>
+                <Input
+                  id="edit_fecha_vencimiento"
+                  type="date"
+                  value={editingExpediente.fecha_vencimiento || ""}
+                  onChange={(e) => setEditingExpediente({ ...editingExpediente, fecha_vencimiento: e.target.value })}
+                />
+              </div>
+
+              {/* Observaciones */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_observaciones">Observaciones</Label>
+                <Textarea
+                  id="edit_observaciones"
+                  placeholder="Notas u observaciones adicionales..."
+                  value={editingExpediente.observaciones || ""}
+                  onChange={(e) => setEditingExpediente({ ...editingExpediente, observaciones: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              {/* Campos específicos para expedientes de tipo "Pago" */}
+              {editingExpediente.tipo === "Pago" && (
+                <div className="space-y-4 border-t pt-4 mt-4">
+                  <h4 className="text-sm font-semibold text-slate-700">Datos para Orden de Compra</h4>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_oc_señor">Señor/es</Label>
+                    <Input
+                      id="edit_oc_señor"
+                      placeholder="Nombre del proveedor o destinatario"
+                      className="bg-slate-50"
+                      value={editingExpediente.oc_señor || ""}
+                      onChange={(e) => setEditingExpediente({ ...editingExpediente, oc_señor: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_oc_domicilio">Domicilio</Label>
+                    <Input
+                      id="edit_oc_domicilio"
+                      placeholder="Dirección del proveedor"
+                      className="bg-slate-50"
+                      value={editingExpediente.oc_domicilio || ""}
+                      onChange={(e) => setEditingExpediente({ ...editingExpediente, oc_domicilio: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_oc_cuit">CUIT</Label>
+                    <Input
+                      id="edit_oc_cuit"
+                      placeholder="CUIT del proveedor"
+                      className="bg-slate-50"
+                      value={editingExpediente.oc_cuit || ""}
+                      onChange={(e) => setEditingExpediente({ ...editingExpediente, oc_cuit: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_oc_descripcion_zona">Descripción de Zona</Label>
+                    <Input
+                      id="edit_oc_descripcion_zona"
+                      placeholder="Zona de entrega o aplicación"
+                      className="bg-slate-50"
+                      value={editingExpediente.oc_descripcion_zona || ""}
+                      onChange={(e) => setEditingExpediente({ ...editingExpediente, oc_descripcion_zona: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_oc_forma_pago">Forma de Pago</Label>
+                      <Input
+                        id="edit_oc_forma_pago"
+                        placeholder="Ej: Contado, 30 días"
+                        className="bg-slate-50"
+                        value={editingExpediente.oc_forma_pago || ""}
+                        onChange={(e) => setEditingExpediente({ ...editingExpediente, oc_forma_pago: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_oc_plazo_entrega">Plazo de Entrega</Label>
+                      <Input
+                        id="edit_oc_plazo_entrega"
+                        placeholder="Ej: 15 días"
+                        className="bg-slate-50"
+                        value={editingExpediente.oc_plazo_entrega || ""}
+                        onChange={(e) => setEditingExpediente({ ...editingExpediente, oc_plazo_entrega: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_factura_path">Factura (opcional)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="edit_factura_path"
+                        placeholder="Ruta o nombre del archivo de factura"
+                        className="bg-slate-50"
+                        value={editingExpediente.factura_path || ""}
+                        onChange={(e) => setEditingExpediente({ ...editingExpediente, factura_path: e.target.value })}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                        title="Adjuntar factura"
+                      >
+                        <Upload className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-slate-500">Puedes ingresar la ruta del archivo o adjuntar un documento</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsEditDialogOpen(false);
+              setEditingExpediente(null);
+            }}>
+              Cancelar
+            </Button>
+            <Button onClick={handleUpdateExpediente} className="bg-blue-600 hover:bg-blue-700 text-white">
+              Guardar Cambios
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1543,6 +2142,39 @@ export default function Dashboard() {
                       </div>
                     )}
                   </div>
+                  
+                  {/* Factura */}
+                  {selectedRecord.factura_path && (
+                    <div className="mt-4 pt-4 border-t border-blue-200">
+                      <div className="flex items-center justify-between bg-white rounded-lg p-3 border border-blue-200">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-blue-100 rounded-lg p-2">
+                            <File className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-blue-700 uppercase tracking-wider">Factura Adjunta</p>
+                            <p className="text-sm font-medium text-blue-900 mt-0.5">{selectedRecord.factura_path.split('/').pop() || selectedRecord.factura_path}</p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                          onClick={() => {
+                            if (selectedRecord.factura_path) {
+                              openPath(selectedRecord.factura_path).catch((err) => {
+                                console.error('Error al abrir factura:', err);
+                                alert('No se pudo abrir el archivo de factura');
+                              });
+                            }
+                          }}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Abrir
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1598,6 +2230,9 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

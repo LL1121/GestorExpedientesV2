@@ -14,23 +14,26 @@ pub struct Expediente {
     pub año: i32,
     pub tipo: TipoExpediente,
 
-    /// Identificadores externos
+    /// Campos comunes a todos los expedientes
+    pub archivo: Option<String>,
     pub nro_infogov: Option<String>,
+    pub tema: Option<String>,
     pub nro_gde: Option<String>,
+    pub fecha_inicio: DateTime<Utc>,
+    pub fecha_pase: Option<DateTime<Utc>>,
+    pub oficina: Option<String>,
+    pub estado: EstadoExpediente,
+    pub buzon_grupal: Option<String>,
+    pub hacer: Option<String>,
+    pub resumen: Option<String>, // Combinación de nro_infogov + resumen + nro_gde
+    
+    /// Campos legacy/adicionales
     pub caratula: Option<String>,
     pub resolucion_nro: Option<String>,
-    
-    /// Descripción y contenido
     pub asunto: String,
     pub descripcion: Option<String>,
-    
-    /// Categorización
     pub area_responsable: String,
     pub prioridad: Prioridad,
-    pub estado: EstadoExpediente,
-    
-    /// Fechas importantes
-    pub fecha_inicio: DateTime<Utc>,
     pub fecha_vencimiento: Option<DateTime<Utc>>,
     pub fecha_finalizacion: Option<DateTime<Utc>>,
     
@@ -55,6 +58,7 @@ pub struct Expediente {
     /// Datos de forma de pago y plazo
     pub oc_forma_pago: Option<String>,
     pub oc_plazo_entrega: Option<String>,
+    pub factura_path: Option<String>,
     
     /// Metadatos
     pub created_at: DateTime<Utc>,
@@ -116,17 +120,28 @@ pub struct CreateExpediente {
     pub numero: String,
     pub año: i32,
     pub tipo: TipoExpediente,
+    
+    // Campos comunes
+    pub archivo: Option<String>,
     pub nro_infogov: Option<String>,
+    pub tema: Option<String>,
     pub nro_gde: Option<String>,
+    pub fecha_inicio: DateTime<Utc>,
+    pub fecha_pase: Option<DateTime<Utc>>,
+    pub oficina: Option<String>,
+    pub buzon_grupal: Option<String>,
+    pub hacer: Option<String>,
+    
+    // Campos legacy/adicionales
     pub caratula: Option<String>,
     pub resolucion_nro: Option<String>,
     pub asunto: String,
     pub descripcion: Option<String>,
     pub area_responsable: String,
     pub prioridad: Prioridad,
-    pub fecha_inicio: DateTime<Utc>,
     pub fecha_vencimiento: Option<DateTime<Utc>>,
     pub agente_responsable_id: Option<String>,
+    
     // Campos específicos para expedientes de tipo "Pago"
     pub oc_señor: Option<String>,
     pub oc_domicilio: Option<String>,
@@ -134,15 +149,22 @@ pub struct CreateExpediente {
     pub oc_descripcion_zona: Option<String>,
     pub oc_forma_pago: Option<String>,
     pub oc_plazo_entrega: Option<String>,
+    pub factura_path: Option<String>,
 }
 
 /// Datos para actualizar un expediente
 #[derive(Debug, Deserialize)]
 pub struct UpdateExpediente {
+    pub archivo: Option<String>,
+    pub nro_infogov: Option<String>,
+    pub tema: Option<String>,
+    pub nro_gde: Option<String>,
+    pub fecha_pase: Option<DateTime<Utc>>,
+    pub oficina: Option<String>,
+    pub buzon_grupal: Option<String>,
+    pub hacer: Option<String>,
     pub asunto: Option<String>,
     pub descripcion: Option<String>,
-    pub nro_infogov: Option<String>,
-    pub nro_gde: Option<String>,
     pub caratula: Option<String>,
     pub resolucion_nro: Option<String>,
     pub prioridad: Option<Prioridad>,
@@ -151,4 +173,13 @@ pub struct UpdateExpediente {
     pub fecha_finalizacion: Option<DateTime<Utc>>,
     pub agente_responsable_id: Option<String>,
     pub observaciones: Option<String>,
+    
+    // Campos OC para expedientes de tipo "Pago"
+    pub oc_señor: Option<String>,
+    pub oc_domicilio: Option<String>,
+    pub oc_cuit: Option<String>,
+    pub oc_descripcion_zona: Option<String>,
+    pub oc_forma_pago: Option<String>,
+    pub oc_plazo_entrega: Option<String>,
+    pub factura_path: Option<String>,
 }

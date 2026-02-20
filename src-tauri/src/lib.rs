@@ -11,6 +11,8 @@ pub use db::{DatabasePool, init_databases};
 pub use error::AppError;
 
 use std::env;
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
+use tauri::Emitter;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -59,7 +61,9 @@ pub fn run() {
             // Iniciar Tauri
             tauri::Builder::default()
                 .plugin(tauri_plugin_opener::init())
-                .manage(pools)
+                .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+                .plugin(tauri_plugin_clipboard_manager::init())
+                .manage(pools.clone())
                 .invoke_handler(tauri::generate_handler![
                     greet,
                     get_db_status,
@@ -71,6 +75,7 @@ pub fn run() {
                     commands::update_expediente,
                     commands::delete_expediente,
                     commands::search_expedientes,
+                    commands::procesar_y_guardar_expediente,
                     // Commands de Órdenes de Compra
                     commands::obtener_proveedores,
                     commands::crear_proveedor,
@@ -106,7 +111,98 @@ pub fn run() {
                     commands::exportar_excel_movilidades,
                     commands::exportar_excel_personal,
                 ])
+                .setup(move |app| {
+                    let app_handle = app.handle();
+                    let pools_clone = pools.clone();
+
+                    // Registrar el atajo Alt+I en el setup
+                    let shortcut_manager = app.global_shortcut();
+                    
+                    // Registrar el atajo Alt+I
+                    if let Err(e) = shortcut_manager.register("alt+i") {
+                        eprintln!("⚠️ Error registrando atajo Alt+I (continuando sin atajo): {}", e);
+                    } else {
+                        println!("✅ Atajo Alt+I registrado correctamente");
+
+                        // Escuchar evento del atajo
+                        let app = app_handle.clone();
+                        let pools = pools_clone.clone();
+                        shortcut_manager.on_shortcut("alt+i", move |_app, shortcut, _event| {
+                            let app = app.clone();
+                            let pools = pools.clone();
+                            
+                            println!("⌨️ Atajo presionado: {}", shortcut);
+                            
+                            tauri::async_runtime::spawn(async move {
+                                procesar_atajo_infogov(&app, &pools).await;
+                            });
+                        });
+                    }
+
+                    Ok(())
+                })
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application");
         });
+}
+
+/// Procesa el atajo Alt+I: captura portapapeles y guarda expediente
+async fn procesar_atajo_infogov(app: &tauri::AppHandle, pools: &crate::db::DatabasePool) {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    use crate::repositories::ExpedienteRepository;
+    use crate::utils::infogov_parser::InfoGovExpediente;
+
+    println!("🔥 Atajo Alt+I activado");
+
+    // Leer portapapeles
+    match app.clipboard().read_text() {
+        Ok(text) => {
+            println!("📋 Texto del portapapeles: {} caracteres", text.len());
+            
+            // Procesar expediente desde InfoGov
+            match InfoGovExpediente::from_clipboard(&text) {
+                Ok(infogov_exp) => {
+                    // Guardar en base de datos
+                    match ExpedienteRepository::upsert_from_infogov(
+                        pools.get_sqlite(),
+                        infogov_exp.clone(),
+                    ).await {
+                        Ok(result) => {
+                            println!("✅ Expediente procesado: {}", infogov_exp.nro_infogov);
+                            
+                            // Emitir evento al frontend
+                            let _ = app.emit("expediente_procesado", serde_json::json!({
+                                "success": true,
+                                "id": result.id,
+                                "resumen": infogov_exp.resumen,
+                                "nro_infogov": infogov_exp.nro_infogov,
+                                "mensaje": format!("✅ Expediente {} procesado correctamente", infogov_exp.nro_infogov)
+                            }));
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Error al guardar: {}", e);
+                            let _ = app.emit("expediente_error", serde_json::json!({
+                                "error": format!("Error al guardar: {}", e),
+                                "timestamp": chrono::Utc::now().to_rfc3339()
+                            }));
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("❌ Error al parsear: {}", e);
+                    let _ = app.emit("expediente_error", serde_json::json!({
+                        "error": e,
+                        "timestamp": chrono::Utc::now().to_rfc3339()
+                    }));
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("❌ Error al leer portapapeles: {}", e);
+            let _ = app.emit("expediente_error", serde_json::json!({
+                "error": format!("Error al leer portapapeles: {}", e),
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            }));
+        }
+    }
 }

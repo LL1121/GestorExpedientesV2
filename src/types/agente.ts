@@ -9,6 +9,18 @@ export interface Agente {
   area: string;
   tipo_licencia?: TipoLicencia;
   fecha_vencimiento_licencia?: string;
+  // Información Personal
+  fecha_nacimiento?: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+  // Información Laboral
+  fecha_ingreso?: string;
+  cargo?: string;
+  // Tallas
+  talla_camisa?: string;
+  talla_pantalon?: string;
+  talla_calzado?: string;
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +33,18 @@ export interface CreateAgenteInput {
   area: string;
   tipo_licencia?: TipoLicencia;
   fecha_vencimiento_licencia?: string;
+  // Información Personal
+  fecha_nacimiento?: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+  // Información Laboral
+  fecha_ingreso?: string;
+  cargo?: string;
+  // Tallas
+  talla_camisa?: string;
+  talla_pantalon?: string;
+  talla_calzado?: string;
 }
 
 export type SemaforoStatus = "rojo" | "naranja" | "verde";

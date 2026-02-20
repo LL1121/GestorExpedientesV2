@@ -7,6 +7,8 @@ use chrono::Utc;
 
 use crate::models::expediente::{Expediente, CreateExpediente, UpdateExpediente};
 use crate::error::{Result, AppError};
+use crate::utils::infogov_parser::InfoGovExpediente;
+
 
 pub struct ExpedienteRepository;
 
@@ -203,5 +205,96 @@ impl ExpedienteRepository {
         .await?;
         
         Ok(expedientes)
+    }
+
+    /// UPSERT: Inserta o actualiza un expediente desde datos de InfoGov
+    /// Si el nro_infogov ya existe, actualiza fecha_pase, estado y resumen
+    /// Si no existe, crea un nuevo registro
+    pub async fn upsert_from_infogov(
+        pool: &Pool<Sqlite>,
+        infogov_exp: InfoGovExpediente,
+    ) -> Result<Expediente> {
+        let id = Uuid::new_v4().to_string();
+        let now = Utc::now();
+
+        // Iniciar transacción
+        let mut tx = pool.begin().await?;
+
+        // Verificar si el expediente ya existe
+        let existing = sqlx::query_as::<_, Expediente>(
+            "SELECT * FROM expedientes WHERE nro_infogov = ?"
+        )
+        .bind(&infogov_exp.nro_infogov)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        let result = if let Some(existing_exp) = existing {
+            // ACTUALIZAR: Solo fecha_pase, estado y resumen
+            println!("📝 Actualizando expediente existente: {}", infogov_exp.nro_infogov);
+            
+            sqlx::query(
+                r#"
+                UPDATE expedientes 
+                SET fecha_pase = ?, estado = ?, resumen = ?, updated_at = ?
+                WHERE id = ?
+                "#
+            )
+            .bind(&infogov_exp.fecha_pase)
+            .bind(&infogov_exp.estado)
+            .bind(&infogov_exp.resumen)
+            .bind(now)
+            .bind(&existing_exp.id)
+            .execute(&mut *tx)
+            .await?;
+
+            existing_exp.id
+        } else {
+            // INSERTAR: Nuevo expediente completo
+            println!("✨ Creando nuevo expediente: {}", infogov_exp.nro_infogov);
+            
+            sqlx::query(
+                r#"
+                INSERT INTO expedientes (
+                    id, numero, año, tipo, nro_infogov, nro_gde, 
+                    asunto, descripcion, area_responsable, prioridad, estado,
+                    fecha_inicio, fecha_pase, oficina, buzon_grupal, hacer,
+                    resumen, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                "#
+            )
+            .bind(&id)
+            .bind("") // numero (vacío - será completado manualmente si es necesario)
+            .bind(0) // año (extraído del nro_infogov)
+            .bind("OTRO") // tipo por defecto
+            .bind(&infogov_exp.nro_infogov)
+            .bind(&infogov_exp.nro_gde)
+            .bind(&infogov_exp.tema) // asunto = tema
+            .bind("") // descripción vacía
+            .bind("InfoGov") // área responsable
+            .bind("MEDIA") // prioridad por defecto
+            .bind(&infogov_exp.estado) // estado capturado de InfoGov
+            .bind(now.format("%Y-%m-%d").to_string()) // fecha_inicio = hoy
+            .bind(&infogov_exp.fecha_pase) // fecha_pase capturada
+            .bind(&infogov_exp.oficina) // oficina extraída del nro_gde
+            .bind("") // buzón grupal vacío (completar manualmente)
+            .bind("") // hacer vacío (completar manualmente)
+            .bind(&infogov_exp.resumen) // resumen calculado
+            .bind(now)
+            .bind(now)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| {
+                eprintln!("❌ Error en INSERT: {}", e);
+                e
+            })?;
+
+            id
+        };
+
+        // Confirmar transacción
+        tx.commit().await?;
+
+        // Recuperar el expediente creado/actualizado
+        Self::get_by_id(pool, &result).await
     }
 }

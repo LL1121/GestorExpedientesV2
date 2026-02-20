@@ -10,16 +10,27 @@ export interface Expediente {
   numero: string;
   año: number;
   tipo: TipoExpediente;
+  
+  // Campos comunes a todos los expedientes
+  archivo?: string | null;
   nro_infogov?: string | null;
+  tema?: string | null;
   nro_gde?: string | null;
+  fecha_inicio: string;
+  fecha_pase?: string | null;
+  oficina?: string | null;
+  estado: EstadoExpediente;
+  buzon_grupal?: string | null;
+  hacer?: string | null;
+  resumen?: string | null; // Combinación de nro_infogov + resumen + nro_gde
+  
+  // Campos legacy/adicionales
   caratula?: string | null;
   resolucion_nro?: string | null;
   asunto: string;
   descripcion: string | null;
   area_responsable: string;
   prioridad: Prioridad;
-  estado: EstadoExpediente;
-  fecha_inicio: string;
   fecha_vencimiento: string | null;
   fecha_finalizacion: string | null;
   agente_responsable_id: string | null;
@@ -33,6 +44,7 @@ export interface Expediente {
   oc_descripcion_zona?: string | null;
   oc_forma_pago?: string | null;
   oc_plazo_entrega?: string | null;
+  factura_path?: string | null;
   
   created_at: string;
   updated_at: string;
@@ -43,15 +55,25 @@ export interface CreateExpedienteInput {
   numero: string;
   año: number;
   tipo: TipoExpediente;
+  
+  // Campos comunes
+  archivo?: string;
   nro_infogov?: string;
+  tema?: string;
   nro_gde?: string;
+  fecha_inicio: string;
+  fecha_pase?: string;
+  oficina?: string;
+  buzon_grupal?: string;
+  hacer?: string;
+  
+  // Campos legacy/adicionales
   caratula?: string;
   resolucion_nro?: string;
   asunto: string;
   descripcion?: string;
   area_responsable: string;
   prioridad: Prioridad;
-  fecha_inicio: string;
   fecha_vencimiento?: string;
   agente_responsable_id?: string;
   
@@ -62,13 +84,20 @@ export interface CreateExpedienteInput {
   oc_descripcion_zona?: string;
   oc_forma_pago?: string;
   oc_plazo_entrega?: string;
+  factura_path?: string;
 }
 
 export interface UpdateExpedienteInput {
+  archivo?: string;
+  nro_infogov?: string;
+  tema?: string;
+  nro_gde?: string;
+  fecha_pase?: string;
+  oficina?: string;
+  buzon_grupal?: string;
+  hacer?: string;
   asunto?: string;
   descripcion?: string;
-  nro_infogov?: string;
-  nro_gde?: string;
   caratula?: string;
   resolucion_nro?: string;
   prioridad?: Prioridad;
@@ -77,4 +106,13 @@ export interface UpdateExpedienteInput {
   fecha_finalizacion?: string;
   agente_responsable_id?: string;
   observaciones?: string;
+  
+  // Campos OC para expedientes de tipo "Pago"
+  oc_señor?: string;
+  oc_domicilio?: string;
+  oc_cuit?: string;
+  oc_descripcion_zona?: string;
+  oc_forma_pago?: string;
+  oc_plazo_entrega?: string;
+  factura_path?: string;
 }

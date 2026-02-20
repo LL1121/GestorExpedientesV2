@@ -27,6 +27,20 @@ pub async fn run_sqlite_migrations(pool: &SqlitePool) -> Result<()> {
             nro_gde TEXT,
             caratula TEXT,
             resolucion_nro TEXT,
+            archivo TEXT,
+            tema TEXT,
+            fecha_pase DATETIME,
+            oficina TEXT,
+            buzon_grupal TEXT,
+            hacer TEXT,
+            resumen TEXT,
+            oc_señor TEXT,
+            oc_domicilio TEXT,
+            oc_cuit TEXT,
+            oc_descripcion_zona TEXT,
+            oc_forma_pago TEXT,
+            oc_plazo_entrega TEXT,
+            factura_path TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -115,6 +129,40 @@ pub async fn run_sqlite_migrations(pool: &SqlitePool) -> Result<()> {
         .await
         .ok();
     sqlx::query("ALTER TABLE expedientes ADD COLUMN oc_plazo_entrega TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN factura_path TEXT")
+        .execute(pool)
+        .await
+        .ok();
+
+    // Nuevos campos comunes a todos los expedientes
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN archivo TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN tema TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN fecha_pase DATETIME")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN oficina TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN buzon_grupal TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN hacer TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN resumen TEXT")
         .execute(pool)
         .await
         .ok();

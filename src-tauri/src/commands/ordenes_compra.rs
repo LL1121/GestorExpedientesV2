@@ -702,152 +702,164 @@ pub struct PDFRenglon {
 #[tauri::command]
 pub async fn generar_pdf(data: GenerarPDFOCRequest) -> Result<String, String> {
     println!("📄 Generando PDF para OC {}", data.numero_oc);
-    
-    // Obtener ruta de la plantilla Excel
-    let exe_dir = std::env::current_exe()
-        .map_err(|e| format!("Error al obtener directorio ejecutable: {}", e))?;
-    let exe_parent = exe_dir.parent()
-        .ok_or("No se pudo obtener directorio padre del ejecutable")?;
-    
-    // Buscar plantilla en resources
-    let template_path = exe_parent.join("resources/templates/MODELO_ORDEN_DE_COMPRA.xlsx");
-    
-    if !template_path.exists() {
-        return Err(format!("Plantilla Excel no encontrada en: {:?}", template_path));
-    }
-    
-    // Construir rutas de salida
-    let home_dir = dirs::home_dir()
-        .ok_or("No se pudo obtener el directorio home")?;
-    let docs_dir = home_dir.join("Documents");
-    std::fs::create_dir_all(&docs_dir)
-        .map_err(|e| format!("Error al crear directorio: {}", e))?;
-    
-    let safe_oc_number = data.numero_oc.replace("/", "-");
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| format!("Error al obtener timestamp: {}", e))?
-        .as_secs();
-    let excel_filename = format!("OC-{}-temp-{}.xlsx", safe_oc_number, timestamp);
-    let pdf_filename = format!("OC-{}-{}.pdf", safe_oc_number, timestamp);
-    
-    let temp_excel_path = docs_dir.join(&excel_filename);
-    let pdf_path = docs_dir.join(&pdf_filename);
-    
-    // Crear datos Excel
-    let destino_limpio = data.destino
-        .replace("Zona Riego", "")
-        .replace("ZONA RIEGO", "")
-        .trim()
-        .to_string();
-    
-    // Formatear fecha de ISO (2026-02-11) a español (11 de febrero de 2026)
-    let fecha_formateada = formatear_fecha_español(&data.fecha)
-        .unwrap_or_else(|_| data.fecha.clone());
-    
-    // Formatear expediente completo con GDE/InfoGov si existe
-    let expediente_completo = formatear_expediente_completo(
-        &data.expediente_numero, 
-        data.expediente_año,
-        data.nro_gde.as_deref(),
-        data.nro_infogov.as_deref()
-    );
-    
-    let excel_data = OCExcelData {
-        numero_oc: data.numero_oc.clone(),
-        pedido_nro: data.pedido_nro,
-        destino: destino_limpio,
-        fecha: fecha_formateada,
-        expediente_numero: expediente_completo,
-        expediente_año: data.expediente_año,
-        resolucion_nro: data.resolucion_nro.clone(),
-        tipo_contratacion: data.tipo_contratacion.clone(),
-        señor: data.señor.clone(),
-        domicilio: data.domicilio.clone(),
-        cuit: data.cuit.clone(),
-        descripcion_zona: data.descripcion_zona.clone(),
-        renglones: data.renglones.iter().map(|r| OCRenglon {
-            numero: r.numero,
-            cantidad: r.cantidad,
-            concepto: r.concepto.clone(),
-            marca: r.marca.clone(),
-            valor_unitario: r.valor_unitario,
-            total: r.total,
-        }).collect(),
-        subtotal: data.subtotal,
-        iva: data.iva,
-        total: data.total,
-        total_en_letras: data.total_en_letras.clone(),
-        forma_pago: data.forma_pago.clone(),
-        plazo_entrega: data.plazo_entrega.clone(),
-        es_iva_inscripto: data.es_iva_inscripto,
-    };
-    
-    // Copiar plantilla sin modificar
-    std::fs::copy(&template_path, &temp_excel_path)
-        .map_err(|e| format!("Error al copiar plantilla: {}", e))?;
-    
-    println!("✓ Plantilla copiada: {:?}", temp_excel_path);
-    
-    // Convertir Excel a PDF usando PowerShell (que también escribirá los datos)
-    ejecutar_conversion_excel_a_pdf_con_datos(
-        temp_excel_path.to_str().ok_or("Ruta de Excel inválida")?,
-        pdf_path.to_str().ok_or("Ruta de PDF inválida")?,
-        excel_data,
-    )
-    .map_err(|e| format!("Error al convertir a PDF: {}", e))?;
 
-    let mut final_pdf_path = pdf_path.clone();
-    let mut found = false;
-    for _ in 0..10 {
-        if final_pdf_path.exists() {
-            found = true;
-            break;
+    tauri::async_runtime::spawn_blocking(move || {
+        let t0 = std::time::Instant::now();
+        // Obtener ruta de la plantilla Excel
+        let exe_dir = std::env::current_exe()
+            .map_err(|e| format!("Error al obtener directorio ejecutable: {}", e))?;
+        let exe_parent = exe_dir.parent()
+            .ok_or("No se pudo obtener directorio padre del ejecutable")?;
+
+        // Buscar plantilla en resources
+        let template_path = exe_parent.join("resources/templates/MODELO_ORDEN_DE_COMPRA.xlsx");
+
+        if !template_path.exists() {
+            return Err(format!("Plantilla Excel no encontrada en: {:?}", template_path));
         }
-        std::thread::sleep(std::time::Duration::from_millis(500));
-    }
+        println!("⏱️ plantilla verificada: {} ms", t0.elapsed().as_millis());
 
-    if !found {
-        if let Some(stem) = pdf_path.file_stem().and_then(|s| s.to_str()) {
-            let prefix = match stem.rsplit_once('-') {
-                Some((base, _)) => format!("{}-", base),
-                None => stem.to_string(),
-            };
-            let mut candidates: Vec<(std::path::PathBuf, std::time::SystemTime)> = Vec::new();
-            if let Ok(entries) = std::fs::read_dir(&docs_dir) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("pdf")).unwrap_or(false) {
-                        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                            if name.starts_with(&prefix) {
-                                if let Ok(modified) = entry.metadata().and_then(|m| m.modified()) {
-                                    candidates.push((path, modified));
+        // Construir rutas de salida
+        let home_dir = dirs::home_dir()
+            .ok_or("No se pudo obtener el directorio home")?;
+        let docs_dir = home_dir.join("Documents");
+        std::fs::create_dir_all(&docs_dir)
+            .map_err(|e| format!("Error al crear directorio: {}", e))?;
+
+        let safe_oc_number = data.numero_oc.replace("/", "-");
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| format!("Error al obtener timestamp: {}", e))?
+            .as_secs();
+        let excel_filename = format!("OC-{}-temp-{}.xlsx", safe_oc_number, timestamp);
+        let pdf_filename = format!("OC-{}-{}.pdf", safe_oc_number, timestamp);
+
+        let temp_excel_path = docs_dir.join(&excel_filename);
+        let pdf_path = docs_dir.join(&pdf_filename);
+        println!("⏱️ rutas preparadas: {} ms", t0.elapsed().as_millis());
+
+        // Crear datos Excel
+        let destino_limpio = data.destino
+            .replace("Zona Riego", "")
+            .replace("ZONA RIEGO", "")
+            .trim()
+            .to_string();
+
+        // Formatear fecha de ISO (2026-02-11) a español (11 de febrero de 2026)
+        let fecha_formateada = formatear_fecha_español(&data.fecha)
+            .unwrap_or_else(|_| data.fecha.clone());
+
+        // Formatear expediente completo con GDE/InfoGov si existe
+        let expediente_completo = formatear_expediente_completo(
+            &data.expediente_numero,
+            data.expediente_año,
+            data.nro_gde.as_deref(),
+            data.nro_infogov.as_deref()
+        );
+
+        let excel_data = OCExcelData {
+            numero_oc: data.numero_oc.clone(),
+            pedido_nro: data.pedido_nro,
+            destino: destino_limpio,
+            fecha: fecha_formateada,
+            expediente_numero: expediente_completo,
+            expediente_año: data.expediente_año,
+            resolucion_nro: data.resolucion_nro.clone(),
+            tipo_contratacion: data.tipo_contratacion.clone(),
+            señor: data.señor.clone(),
+            domicilio: data.domicilio.clone(),
+            cuit: data.cuit.clone(),
+            descripcion_zona: data.descripcion_zona.clone(),
+            renglones: data.renglones.iter().map(|r| OCRenglon {
+                numero: r.numero,
+                cantidad: r.cantidad,
+                concepto: r.concepto.clone(),
+                marca: r.marca.clone(),
+                valor_unitario: r.valor_unitario,
+                total: r.total,
+            }).collect(),
+            subtotal: data.subtotal,
+            iva: data.iva,
+            total: data.total,
+            total_en_letras: data.total_en_letras.clone(),
+            forma_pago: data.forma_pago.clone(),
+            plazo_entrega: data.plazo_entrega.clone(),
+            es_iva_inscripto: data.es_iva_inscripto,
+        };
+        println!("⏱️ datos excel armados: {} ms", t0.elapsed().as_millis());
+
+        // Copiar plantilla sin modificar
+        std::fs::copy(&template_path, &temp_excel_path)
+            .map_err(|e| format!("Error al copiar plantilla: {}", e))?;
+
+        println!("✓ Plantilla copiada: {:?}", temp_excel_path);
+        println!("⏱️ plantilla copiada: {} ms", t0.elapsed().as_millis());
+
+        // Convertir Excel a PDF usando PowerShell (que también escribirá los datos)
+        ejecutar_conversion_excel_a_pdf_con_datos(
+            temp_excel_path.to_str().ok_or("Ruta de Excel inválida")?,
+            pdf_path.to_str().ok_or("Ruta de PDF inválida")?,
+            excel_data,
+        )
+        .map_err(|e| format!("Error al convertir a PDF: {}", e))?;
+        println!("⏱️ conversión a PDF: {} ms", t0.elapsed().as_millis());
+
+        let mut final_pdf_path = pdf_path.clone();
+        let mut found = false;
+        for _ in 0..10 {
+            if final_pdf_path.exists() {
+                found = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+
+        if !found {
+            if let Some(stem) = pdf_path.file_stem().and_then(|s| s.to_str()) {
+                let prefix = match stem.rsplit_once('-') {
+                    Some((base, _)) => format!("{}-", base),
+                    None => stem.to_string(),
+                };
+                let mut candidates: Vec<(std::path::PathBuf, std::time::SystemTime)> = Vec::new();
+                if let Ok(entries) = std::fs::read_dir(&docs_dir) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("pdf")).unwrap_or(false) {
+                            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                                if name.starts_with(&prefix) {
+                                    if let Ok(modified) = entry.metadata().and_then(|m| m.modified()) {
+                                        candidates.push((path, modified));
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            if let Some((path, _)) = candidates.into_iter().max_by_key(|(_, m)| *m) {
-                final_pdf_path = path;
-                found = true;
+                if let Some((path, _)) = candidates.into_iter().max_by_key(|(_, m)| *m) {
+                    final_pdf_path = path;
+                    found = true;
+                }
             }
         }
-    }
 
-    if !found {
-        return Err("El PDF no fue generado correctamente".to_string());
-    }
+        if !found {
+            return Err("El PDF no fue generado correctamente".to_string());
+        }
+        println!("⏱️ verificación PDF: {} ms", t0.elapsed().as_millis());
 
-    println!("✓ PDF generado exitosamente en: {:?}", final_pdf_path);
+        println!("✓ PDF generado exitosamente en: {:?}", final_pdf_path);
 
-    let path_str = final_pdf_path.to_str()
-        .ok_or("No se pudo convertir la ruta a string")?
-        .to_string();
+        let path_str = final_pdf_path.to_str()
+            .ok_or("No se pudo convertir la ruta a string")?
+            .to_string();
 
-    println!("✓ PDF generado exitosamente en: {}", path_str);
-    Ok(path_str)
+        println!("✓ PDF generado exitosamente en: {}", path_str);
+        println!("⏱️ total generar_pdf: {} ms", t0.elapsed().as_millis());
+        Ok(path_str)
+    })
+    .await
+    .map_err(|e| format!("Error en hilo de generación de PDF: {}", e))?
 }
 
 #[tauri::command]
