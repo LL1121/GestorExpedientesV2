@@ -76,6 +76,7 @@ pub fn run() {
                     commands::delete_expediente,
                     commands::search_expedientes,
                     commands::procesar_y_guardar_expediente,
+                    commands::get_expedientes_notificaciones,
                     // Commands de Órdenes de Compra
                     commands::obtener_proveedores,
                     commands::crear_proveedor,

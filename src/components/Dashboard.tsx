@@ -70,10 +70,11 @@ import Personal from "@/components/Personal";
 import FormularioOC from "@/components/FormularioOC";
 import PreviewOC from "@/components/PreviewOC";
 import ConfigTopes from "@/components/ConfigTopes";
+import Notificaciones from "@/components/Notificaciones";
 import { ToastContainer, useToast } from "@/components/Toast";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
-type ActiveView = "dashboard" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc" | "preview-oc";
+type ActiveView = "dashboard" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc" | "preview-oc" | "notificaciones";
 
 export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -105,6 +106,7 @@ export default function Dashboard() {
     return saved ? JSON.parse(saved) : false;
   });
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
     x: number;
@@ -445,6 +447,7 @@ export default function Dashboard() {
             { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" as ActiveView },
             { icon: Truck, label: "Movilidades", view: "movilidades" as ActiveView },
             { icon: Users, label: "Personal", view: "personal" as ActiveView },
+            { icon: Bell, label: "Notificaciones", view: "notificaciones" as ActiveView, badge: notificationCount },
             { icon: BarChart3, label: "Analíticas", view: "analiticas" as ActiveView },
             { icon: Settings, label: "Configuración", view: "configuracion" as ActiveView },
           ].map((item, idx) => (
@@ -452,11 +455,18 @@ export default function Dashboard() {
               key={idx}
               onClick={() => handleViewChange(item.view)}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium",
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium relative",
                 activeView === item.view ? "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               )}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
+              <div className="relative">
+                <item.icon className="h-5 w-5 shrink-0" />
+                {item.badge && item.badge > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </span>
+                )}
+              </div>
               {!sidebarCollapsed && <span>{item.label}</span>}
             </button>
           ))}
@@ -785,6 +795,12 @@ export default function Dashboard() {
 
           {/* Vista: Personal */}
           {activeView === "personal" && <Personal />}
+
+          {/* Vista: Notificaciones */}
+          {activeView === "notificaciones" && <Notificaciones onSelectExpediente={(exp) => {
+            setSelectedRecord(exp);
+            setActiveView("dashboard");
+          }} onNotificationCountChange={(count) => setNotificationCount(count)} />}
 
           {/* Vista: Analíticas */}
           {activeView === "analiticas" && (
