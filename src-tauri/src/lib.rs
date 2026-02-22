@@ -77,6 +77,7 @@ pub fn run() {
                     commands::search_expedientes,
                     commands::procesar_y_guardar_expediente,
                     commands::get_expedientes_notificaciones,
+                    commands::populate_mock_data,
                     // Commands de Órdenes de Compra
                     commands::obtener_proveedores,
                     commands::crear_proveedor,
