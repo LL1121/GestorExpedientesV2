@@ -128,17 +128,16 @@ pub async fn update_agente(
     
     // Construir query dinámica solo con campos presentes
     let mut query_parts = vec!["UPDATE agentes SET updated_at = ?"];
-    let mut bind_count = 1;
     
-    if data.nombre.is_some() { query_parts.push("nombre = ?"); bind_count += 1; }
-    if data.apellido.is_some() { query_parts.push("apellido = ?"); bind_count += 1; }
-    if data.email.is_some() { query_parts.push("email = ?"); bind_count += 1; }
-    if data.telefono.is_some() { query_parts.push("telefono = ?"); bind_count += 1; }
-    if data.cargo.is_some() { query_parts.push("cargo = ?"); bind_count += 1; }
-    if data.area.is_some() { query_parts.push("area = ?"); bind_count += 1; }
-    if data.activo.is_some() { query_parts.push("activo = ?"); bind_count += 1; }
-    if data.licencia_conducir.is_some() { query_parts.push("licencia_conducir = ?"); bind_count += 1; }
-    if data.vencimiento_licencia.is_some() { query_parts.push("vencimiento_licencia = ?"); bind_count += 1; }
+    if data.nombre.is_some() { query_parts.push("nombre = ?"); }
+    if data.apellido.is_some() { query_parts.push("apellido = ?"); }
+    if data.email.is_some() { query_parts.push("email = ?"); }
+    if data.telefono.is_some() { query_parts.push("telefono = ?"); }
+    if data.cargo.is_some() { query_parts.push("cargo = ?"); }
+    if data.area.is_some() { query_parts.push("area = ?"); }
+    if data.activo.is_some() { query_parts.push("activo = ?"); }
+    if data.licencia_conducir.is_some() { query_parts.push("licencia_conducir = ?"); }
+    if data.vencimiento_licencia.is_some() { query_parts.push("vencimiento_licencia = ?"); }
     
     query_parts.push("WHERE id = ?");
     

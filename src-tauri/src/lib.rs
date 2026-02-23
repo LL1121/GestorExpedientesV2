@@ -129,7 +129,7 @@ pub fn run() {
                         // Escuchar evento del atajo
                         let app = app_handle.clone();
                         let pools = pools_clone.clone();
-                        shortcut_manager.on_shortcut("alt+i", move |_app, shortcut, _event| {
+                        let _ = shortcut_manager.on_shortcut("alt+i", move |_app, shortcut, _event| {
                             let app = app.clone();
                             let pools = pools.clone();
                             

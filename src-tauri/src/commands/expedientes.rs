@@ -5,7 +5,7 @@ use tauri::State;
 use serde::{Deserialize, Serialize};
 
 use crate::db::DatabasePool;
-use crate::models::expediente::{Expediente, CreateExpediente, UpdateExpediente};
+use crate::models::expediente::{CreateExpediente, EstadoExpediente, Expediente, TipoExpediente, UpdateExpediente};
 use crate::repositories::ExpedienteRepository;
 use crate::utils::infogov_parser::InfoGovExpediente;
 
@@ -155,10 +155,10 @@ pub async fn get_expedientes_notificaciones(pools: State<'_, DatabasePool>) -> R
         stats["por_estado"]
             .as_object_mut()
             .unwrap()
-            .entry(estado_str)
+            .entry(estado_str.clone())
             .or_insert(serde_json::json!(0));
         
-        if let Some(val) = stats["por_estado"].get_mut(&format!("{:?}", exp.estado)) {
+        if let Some(val) = stats["por_estado"].get_mut(&estado_str) {
             if let Some(n) = val.as_i64() {
                 *val = serde_json::json!(n + 1);
             }
@@ -169,10 +169,10 @@ pub async fn get_expedientes_notificaciones(pools: State<'_, DatabasePool>) -> R
         stats["por_tipo"]
             .as_object_mut()
             .unwrap()
-            .entry(tipo_str)
+            .entry(tipo_str.clone())
             .or_insert(serde_json::json!(0));
         
-        if let Some(val) = stats["por_tipo"].get_mut(&format!("{:?}", exp.tipo)) {
+        if let Some(val) = stats["por_tipo"].get_mut(&tipo_str) {
             if let Some(n) = val.as_i64() {
                 *val = serde_json::json!(n + 1);
             }
@@ -212,9 +212,7 @@ pub async fn get_expedientes_notificaciones(pools: State<'_, DatabasePool>) -> R
         }
 
         // Detectar expedientes de pago sin pagar
-        let tipo_str = format!("{:?}", exp.tipo);
-        let estado_str = format!("{:?}", exp.estado);
-        if tipo_str == "Pago" && estado_str != "Finalizado" {
+        if matches!(&exp.tipo, TipoExpediente::Pago) && !matches!(&exp.estado, EstadoExpediente::Finalizado) {
             sin_pagar.push(serde_json::json!({
                 "id": exp.id,
                 "numero": exp.numero,
@@ -226,8 +224,7 @@ pub async fn get_expedientes_notificaciones(pools: State<'_, DatabasePool>) -> R
         }
 
         // Detectar expedientes pendientes (más de 14 días)
-        let estado_str = format!("{:?}", exp.estado);
-        if estado_str == "Iniciado" || estado_str == "EnProceso" {
+        if matches!(&exp.estado, EstadoExpediente::Iniciado | EstadoExpediente::EnProceso) {
             let fecha_inicio_date = exp.fecha_inicio.date_naive();
             let dias_pendiente = (hoy - fecha_inicio_date).num_days();
             if dias_pendiente > 14 {

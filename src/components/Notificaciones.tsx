@@ -65,13 +65,16 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Intentar obtener datos reales
+      console.log('🔍 Invocando get_expedientes_notificaciones...');
       const result = await (window as any).__TAURI__?.invoke('get_expedientes_notificaciones') as NotificacionesResponse;
+      console.log('✅ Resultado recibido:', result);
+      
       if (result) {
         setNotificaciones(result);
         onNotificationCountChange?.(result.stats.criticos);
       }
     } catch (err) {
-      console.error("Error cargando notificaciones:", err);
+      console.error("❌ Error cargando notificaciones:", err);
       // Si hay error, mostrar notificaciones vacías
       setNotificaciones({
         stats: {
@@ -95,6 +98,28 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectAlerta = async (alerta: Alerta) => {
+    if (!onSelectExpediente) return;
+
+    try {
+      const result = await (window as any).__TAURI__?.invoke("get_expediente", { id: alerta.id });
+      if (result) {
+        onSelectExpediente(result);
+        return;
+      }
+    } catch (err) {
+      console.error("Error cargando expediente:", err);
+    }
+
+    onSelectExpediente({
+      id: alerta.id,
+      numero: alerta.numero,
+      año: alerta.año,
+      asunto: alerta.asunto,
+      estado: alerta.estado
+    });
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -127,7 +152,7 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
     <div
       key={alerta.id}
       className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
-      onClick={() => onSelectExpediente?.({ id: alerta.id, numero: alerta.numero, año: alerta.año, asunto: alerta.asunto, estado: alerta.estado })}
+      onClick={() => handleSelectAlerta(alerta)}
     >
       <div className="flex-shrink-0 mt-1">
         {tipo === "vencidos" && <AlertCircle className="w-5 h-5 text-red-500" />}

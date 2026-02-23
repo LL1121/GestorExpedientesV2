@@ -2064,6 +2064,102 @@ export default function Dashboard() {
                 </div>
               )}
 
+              {/* Información Adicional */}
+              {(selectedRecord.archivo || selectedRecord.nro_infogov || selectedRecord.tema || selectedRecord.nro_gde || selectedRecord.fecha_pase || selectedRecord.oficina || selectedRecord.buzon_grupal || selectedRecord.hacer || selectedRecord.caratula || selectedRecord.resolucion_nro || selectedRecord.observaciones || selectedRecord.archivos_adjuntos || selectedRecord.fecha_finalizacion || selectedRecord.synced_at) && (
+                <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+                  <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-blue-600" />
+                    Información Adicional
+                  </h3>
+                  <div className="grid grid-cols-2 gap-6">
+                    {selectedRecord.archivo && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Archivo</p>
+                        <p className="text-sm font-medium text-slate-900">{selectedRecord.archivo}</p>
+                      </div>
+                    )}
+                    {selectedRecord.nro_infogov && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Nro InfoGov</p>
+                        <p className="text-sm font-medium text-slate-900">{selectedRecord.nro_infogov}</p>
+                      </div>
+                    )}
+                    {selectedRecord.tema && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Tema</p>
+                        <p className="text-sm font-medium text-slate-900">{selectedRecord.tema}</p>
+                      </div>
+                    )}
+                    {selectedRecord.nro_gde && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Nro GDE</p>
+                        <p className="text-sm font-medium text-slate-900">{selectedRecord.nro_gde}</p>
+                      </div>
+                    )}
+                    {selectedRecord.fecha_pase && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha de Pase</p>
+                        <p className="text-sm font-medium text-slate-900">{formatDate(selectedRecord.fecha_pase)}</p>
+                      </div>
+                    )}
+                    {selectedRecord.oficina && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Oficina</p>
+                        <p className="text-sm font-medium text-slate-900">{selectedRecord.oficina}</p>
+                      </div>
+                    )}
+                    {selectedRecord.buzon_grupal && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Buzón Grupal</p>
+                        <p className="text-sm font-medium text-slate-900">{selectedRecord.buzon_grupal}</p>
+                      </div>
+                    )}
+                    {selectedRecord.hacer && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Hacer</p>
+                        <p className="text-sm font-medium text-slate-900">{selectedRecord.hacer}</p>
+                      </div>
+                    )}
+                    {selectedRecord.caratula && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Carátula</p>
+                        <p className="text-sm font-medium text-slate-900">{selectedRecord.caratula}</p>
+                      </div>
+                    )}
+                    {selectedRecord.resolucion_nro && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Resolución N°</p>
+                        <p className="text-sm font-medium text-slate-900">{selectedRecord.resolucion_nro}</p>
+                      </div>
+                    )}
+                    {selectedRecord.fecha_finalizacion && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha Finalización</p>
+                        <p className="text-sm font-medium text-slate-900">{formatDate(selectedRecord.fecha_finalizacion)}</p>
+                      </div>
+                    )}
+                    {selectedRecord.synced_at && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sincronizado</p>
+                        <p className="text-sm font-medium text-slate-900">{formatDate(selectedRecord.synced_at)}</p>
+                      </div>
+                    )}
+                    {selectedRecord.archivos_adjuntos && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Archivos Adjuntos</p>
+                        <p className="text-sm font-medium text-slate-900">{selectedRecord.archivos_adjuntos}</p>
+                      </div>
+                    )}
+                  </div>
+                  {selectedRecord.observaciones && (
+                    <div className="mt-4 pt-4 border-t border-slate-200">
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Observaciones</p>
+                      <p className="text-sm text-slate-700">{selectedRecord.observaciones}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Fechas */}
               <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
                 <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
