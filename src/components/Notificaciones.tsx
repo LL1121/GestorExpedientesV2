@@ -50,7 +50,11 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
     pendientes: true
   });
 
+  console.log('🎨 [Notificaciones] Componente renderizado, notificaciones:', notificaciones);
+  console.log('⏳ [Notificaciones] Loading:', loading);
+
   useEffect(() => {
+    console.log('🚀 [Notificaciones] useEffect ejecutado - cargando datos...');
     cargarNotificaciones();
     // Auto-refresh cada 30 segundos
     const interval = setInterval(cargarNotificaciones, 30000);
@@ -61,20 +65,41 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
     try {
       setLoading(true);
       
+      console.log('🔍 [Notificaciones] Iniciando carga...');
+      
       // Simular delay de red de 1.5 segundos para ver el spinner
       await new Promise(resolve => setTimeout(resolve, 1500));
       
+      // Verificar que Tauri está disponible
+      if (!(window as any).__TAURI__) {
+        console.error('❌ [Notificaciones] Tauri no está disponible en window');
+        throw new Error('Tauri no disponible');
+      }
+      
+      console.log('✅ [Notificaciones] Tauri detectado, invocando comando...');
+      
       // Intentar obtener datos reales
-      console.log('🔍 Invocando get_expedientes_notificaciones...');
-      const result = await (window as any).__TAURI__?.invoke('get_expedientes_notificaciones') as NotificacionesResponse;
-      console.log('✅ Resultado recibido:', result);
+      const result = await (window as any).__TAURI__.invoke('get_expedientes_notificaciones') as NotificacionesResponse;
+      
+      console.log('📦 [Notificaciones] Resultado recibido:', result);
+      console.log('📊 [Notificaciones] Stats:', result?.stats);
+      console.log('🚨 [Notificaciones] Alertas:', {
+        vencidos: result?.alertas?.vencidos?.length || 0,
+        proximos_vencer: result?.alertas?.proximos_vencer?.length || 0,
+        sin_pagar: result?.alertas?.sin_pagar?.length || 0,
+        pendientes: result?.alertas?.pendientes?.length || 0
+      });
       
       if (result) {
         setNotificaciones(result);
         onNotificationCountChange?.(result.stats.criticos);
+        console.log('✅ [Notificaciones] Estado actualizado con', result.stats.total, 'expedientes');
+      } else {
+        console.warn('⚠️ [Notificaciones] Resultado es null/undefined');
       }
     } catch (err) {
-      console.error("❌ Error cargando notificaciones:", err);
+      console.error("❌ [Notificaciones] Error cargando notificaciones:", err);
+      console.error("❌ [Notificaciones] Stack:", (err as Error).stack);
       // Si hay error, mostrar notificaciones vacías
       setNotificaciones({
         stats: {
@@ -190,6 +215,14 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
       </div>
     </div>
   );
+
+  console.log('📋 [Notificaciones] Renderizando con stats:', stats);
+  console.log('📋 [Notificaciones] Alertas a mostrar:', {
+    vencidos: alertas.vencidos.length,
+    proximos_vencer: alertas.proximos_vencer.length,
+    sin_pagar: alertas.sin_pagar.length,
+    pendientes: alertas.pendientes.length
+  });
 
   return (
     <div className="space-y-4 p-4">
