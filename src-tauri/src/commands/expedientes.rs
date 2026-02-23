@@ -123,10 +123,17 @@ pub async fn procesar_y_guardar_expediente(
 /// Obtener notificaciones y expedientes pendientes
 #[tauri::command]
 pub async fn get_expedientes_notificaciones(pools: State<'_, DatabasePool>) -> Result<serde_json::Value, String> {
+    println!("🔍 [get_expedientes_notificaciones] Iniciando...");
+    
     // Obtener todos los expedientes
     let expedientes = ExpedienteRepository::get_all(pools.get_sqlite())
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            eprintln!("❌ [get_expedientes_notificaciones] Error obteniendo expedientes: {}", e);
+            e.to_string()
+        })?;
+
+    println!("📦 [get_expedientes_notificaciones] Expedientes obtenidos: {}", expedientes.len());
 
     // Contar expedientes por estado para notificaciones
     let mut stats = serde_json::json!({
@@ -244,7 +251,7 @@ pub async fn get_expedientes_notificaciones(pools: State<'_, DatabasePool>) -> R
 
     stats["criticos"] = serde_json::json!(criticos);
 
-    Ok(serde_json::json!({
+    let result = serde_json::json!({
         "stats": stats,
         "alertas": {
             "vencidos": vencidos,
@@ -252,7 +259,14 @@ pub async fn get_expedientes_notificaciones(pools: State<'_, DatabasePool>) -> R
             "sin_pagar": sin_pagar,
             "pendientes": pendientes
         }
-    }))
+    });
+    
+    println!("✅ [get_expedientes_notificaciones] Resultado generado:");
+    println!("   📊 Stats: {:?}", stats);
+    println!("   🚨 Alertas: vencidos={}, proximos={}, sin_pagar={}, pendientes={}", 
+        vencidos.len(), proximos_vencer.len(), sin_pagar.len(), pendientes.len());
+    
+    Ok(result)
 }
 
 /// Poblar la BD con datos de prueba mock

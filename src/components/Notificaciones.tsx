@@ -57,9 +57,15 @@ export default function Notificaciones({ onSelectExpediente, onNotificationCount
     console.log('🚀 [Notificaciones] useEffect ejecutado - cargando datos...');
     cargarNotificaciones();
     // Auto-refresh cada 30 segundos
-    const interval = setInterval(cargarNotificaciones, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    const interval = setInterval(() => {
+      console.log('🔄 [Notificaciones] Auto-refresh ejecutado');
+      cargarNotificaciones();
+    }, 30000);
+    return () => {
+      console.log('🛑 [Notificaciones] Limpiando interval');
+      clearInterval(interval);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cargarNotificaciones = async () => {
     try {

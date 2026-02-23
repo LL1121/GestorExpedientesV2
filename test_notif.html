@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Notificaciones</title>
+    <script>
+        // Simular window.__TAURI__ si no está disponible
+        if (!window.__TAURI__) {
+            console.warn('⚠️ Tauri no detectado, usando mock');
+        }
+        
+        async function testNotificaciones() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<p>🔍 Cargando notificaciones...</p>';
+            
+            try {
+                if (window.__TAURI__) {
+                    const result = await window.__TAURI__.invoke('get_expedientes_notificaciones');
+                    output.innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                    console.log('✅ Resultado:', result);
+                } else {
+                    output.innerHTML = '<p style="color: red;">❌ Tauri no está disponible. Ejecuta esto desde la app Tauri.</p>';
+                }
+            } catch (err) {
+                output.innerHTML = '<p style="color: red;">❌ Error: ' + err.message + '</p>';
+                console.error('Error:', err);
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Test Notificaciones Backend</h1>
+    <button onclick="testNotificaciones()">Cargar Notificaciones</button>
+    <div id="output" style="margin-top: 20px; padding: 10px; background: #f5f5f5;"></div>
+</body>
+</html>
