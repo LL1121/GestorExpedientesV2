@@ -131,9 +131,23 @@ export default function Dashboard() {
     }
   };
 
-  // Cargar expedientes al montar el componente
+  const loadNotificationCount = async () => {
+    try {
+      const result = await invoke<{ stats: { criticos: number } }>("get_expedientes_notificaciones");
+      if (result?.stats?.criticos !== undefined) {
+        setNotificationCount(result.stats.criticos);
+      }
+    } catch (err) {
+      console.error("Error cargando contador de notificaciones:", err);
+    }
+  };
+
+  // Cargar expedientes y notificaciones al montar el componente
   useEffect(() => {
     loadExpedientes();
+    loadNotificationCount();
+    const interval = setInterval(loadNotificationCount, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Persistir modo oscuro
