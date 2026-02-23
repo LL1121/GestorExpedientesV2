@@ -4,6 +4,7 @@ pub mod error;
 pub mod models;
 pub mod repositories;
 pub mod commands;
+pub mod services;
 pub mod utils;
 
 // Re-exports

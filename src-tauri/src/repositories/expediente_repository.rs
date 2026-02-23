@@ -297,4 +297,28 @@ impl ExpedienteRepository {
         // Recuperar el expediente creado/actualizado
         Self::get_by_id(pool, &result).await
     }
+
+    /// Obtener expedientes vinculados a un vehículo
+    pub async fn get_by_vehiculo_id(pool: &Pool<Sqlite>, vehiculo_id: &str) -> Result<Vec<Expediente>> {
+        let expedientes = sqlx::query_as::<_, Expediente>(
+            "SELECT * FROM expedientes WHERE vehiculo_id = ? AND tipo = 'PAGO' ORDER BY created_at DESC"
+        )
+        .bind(vehiculo_id)
+        .fetch_all(pool)
+        .await?;
+        
+        Ok(expedientes)
+    }
+
+    /// Obtener expedientes de pago con categoría de gasto específica
+    pub async fn get_by_categoria_gasto(pool: &Pool<Sqlite>, categoria: &str) -> Result<Vec<Expediente>> {
+        let expedientes = sqlx::query_as::<_, Expediente>(
+            "SELECT * FROM expedientes WHERE categoria_gasto = ? AND tipo = 'PAGO' ORDER BY created_at DESC"
+        )
+        .bind(categoria)
+        .fetch_all(pool)
+        .await?;
+        
+        Ok(expedientes)
+    }
 }

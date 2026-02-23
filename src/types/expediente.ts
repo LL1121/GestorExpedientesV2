@@ -4,6 +4,7 @@
 export type TipoExpediente = "InfoGov" | "Gde" | "Interno" | "Pago" | "Otro";
 export type EstadoExpediente = "Iniciado" | "EnProceso" | "EnRevision" | "Observado" | "Finalizado" | "Archivado";
 export type Prioridad = "Baja" | "Media" | "Alta" | "Urgente";
+export type CategoriaGasto = "Combustible" | "Repuestos" | "Mantenimiento" | "Otro";
 
 export interface Expediente {
   id: string;
@@ -46,6 +47,10 @@ export interface Expediente {
   oc_plazo_entrega?: string | null;
   factura_path?: string | null;
   
+  // Vinculación con vehículos
+  categoria_gasto?: CategoriaGasto | null;
+  vehiculo_id?: string | null;
+  
   created_at: string;
   updated_at: string;
   synced_at: string | null;
@@ -85,6 +90,10 @@ export interface CreateExpedienteInput {
   oc_forma_pago?: string;
   oc_plazo_entrega?: string;
   factura_path?: string;
+  
+  // Vinculación con vehículos
+  categoria_gasto?: CategoriaGasto;
+  vehiculo_id?: string;
 }
 
 export interface UpdateExpedienteInput {
@@ -115,4 +124,13 @@ export interface UpdateExpedienteInput {
   oc_forma_pago?: string;
   oc_plazo_entrega?: string;
   factura_path?: string;
+  
+  // Vinculación con vehículos
+  categoria_gasto?: CategoriaGasto;
+  vehiculo_id?: string;
+}
+
+export interface ClassificationResult {  categoria: CategoriaGasto | null;
+  palabras_clave: string[];
+  patente_detectada: string | null;
 }

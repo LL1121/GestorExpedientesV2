@@ -60,6 +60,10 @@ pub struct Expediente {
     pub oc_plazo_entrega: Option<String>,
     pub factura_path: Option<String>,
     
+    /// Vinculación con vehículos y clasificación de gastos
+    pub categoria_gasto: Option<CategoriaGasto>,
+    pub vehiculo_id: Option<String>, // UUID del vehículo vinculado
+    
     /// Metadatos
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -114,6 +118,21 @@ pub enum Prioridad {
     Urgente,
 }
 
+/// Categoría de gasto para expedientes de tipo PAGO
+/// Detectada automáticamente según palabras clave
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, Eq, Hash, PartialEq)]
+#[sqlx(type_name = "categoria_gasto", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CategoriaGasto {
+    #[sqlx(rename = "COMBUSTIBLE")]
+    Combustible,
+    #[sqlx(rename = "REPUESTOS")]
+    Repuestos,
+    #[sqlx(rename = "MANTENIMIENTO")]
+    Mantenimiento,
+    #[sqlx(rename = "OTRO")]
+    Otro,
+}
+
 /// Datos para crear un expediente
 #[derive(Debug, Deserialize)]
 pub struct CreateExpediente {
@@ -150,6 +169,10 @@ pub struct CreateExpediente {
     pub oc_forma_pago: Option<String>,
     pub oc_plazo_entrega: Option<String>,
     pub factura_path: Option<String>,
+    
+    // Vinculación con vehículos
+    pub categoria_gasto: Option<CategoriaGasto>,
+    pub vehiculo_id: Option<String>,
 }
 
 /// Datos para actualizar un expediente
@@ -182,4 +205,8 @@ pub struct UpdateExpediente {
     pub oc_forma_pago: Option<String>,
     pub oc_plazo_entrega: Option<String>,
     pub factura_path: Option<String>,
+    
+    // Vinculación con vehículos
+    pub categoria_gasto: Option<CategoriaGasto>,
+    pub vehiculo_id: Option<String>,
 }

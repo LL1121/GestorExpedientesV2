@@ -9,6 +9,6 @@ pub mod orden_compra;
 
 // Re-exportar para facilitar el uso
 pub use agente::Agente;
-pub use expediente::Expediente;
+pub use expediente::{Expediente, CategoriaGasto};
 pub use vehiculo::Vehiculo;
 pub use ticket::Ticket;

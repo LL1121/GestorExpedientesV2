@@ -41,6 +41,8 @@ pub async fn run_sqlite_migrations(pool: &SqlitePool) -> Result<()> {
             oc_forma_pago TEXT,
             oc_plazo_entrega TEXT,
             factura_path TEXT,
+            categoria_gasto TEXT,
+            vehiculo_id TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -163,6 +165,16 @@ pub async fn run_sqlite_migrations(pool: &SqlitePool) -> Result<()> {
         .await
         .ok();
     sqlx::query("ALTER TABLE expedientes ADD COLUMN resumen TEXT")
+        .execute(pool)
+        .await
+        .ok();
+
+    // Campos para vinculación con vehículos
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN categoria_gasto TEXT")
+        .execute(pool)
+        .await
+        .ok();
+    sqlx::query("ALTER TABLE expedientes ADD COLUMN vehiculo_id TEXT")
         .execute(pool)
         .await
         .ok();

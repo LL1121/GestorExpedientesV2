@@ -5,9 +5,10 @@ use tauri::State;
 use serde::{Deserialize, Serialize};
 
 use crate::db::DatabasePool;
-use crate::models::expediente::{CreateExpediente, EstadoExpediente, Expediente, TipoExpediente, UpdateExpediente};
+use crate::models::expediente::{CreateExpediente, EstadoExpediente, Expediente, TipoExpediente, UpdateExpediente, CategoriaGasto};
 use crate::repositories::ExpedienteRepository;
 use crate::utils::infogov_parser::InfoGovExpediente;
+use crate::services::GastoClassifier;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcesarExpedienteResult {
@@ -16,6 +17,13 @@ pub struct ProcesarExpedienteResult {
     pub resumen: String,
     pub mensaje: String,
     pub nro_infogov: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClassificationResult {
+    pub categoria: Option<String>, // "Combustible", "Repuestos", "Mantenimiento", etc.
+    pub palabras_clave: Vec<String>,
+    pub patente_detectada: Option<String>,
 }
 
 
@@ -123,17 +131,12 @@ pub async fn procesar_y_guardar_expediente(
 /// Obtener notificaciones y expedientes pendientes
 #[tauri::command]
 pub async fn get_expedientes_notificaciones(pools: State<'_, DatabasePool>) -> Result<serde_json::Value, String> {
-    println!("🔍 [get_expedientes_notificaciones] Iniciando...");
-    
     // Obtener todos los expedientes
     let expedientes = ExpedienteRepository::get_all(pools.get_sqlite())
         .await
         .map_err(|e| {
-            eprintln!("❌ [get_expedientes_notificaciones] Error obteniendo expedientes: {}", e);
             e.to_string()
         })?;
-
-    println!("📦 [get_expedientes_notificaciones] Expedientes obtenidos: {}", expedientes.len());
 
     // Contar expedientes por estado para notificaciones
     let mut stats = serde_json::json!({
@@ -260,12 +263,7 @@ pub async fn get_expedientes_notificaciones(pools: State<'_, DatabasePool>) -> R
             "pendientes": pendientes
         }
     });
-    
-    println!("✅ [get_expedientes_notificaciones] Resultado generado:");
-    println!("   📊 Stats: {:?}", stats);
-    println!("   🚨 Alertas: vencidos={}, proximos={}, sin_pagar={}, pendientes={}", 
-        vencidos.len(), proximos_vencer.len(), sin_pagar.len(), pendientes.len());
-    
+
     Ok(result)
 }
 
@@ -310,6 +308,8 @@ pub async fn populate_mock_data(pools: State<'_, DatabasePool>) -> Result<String
             oc_forma_pago: None,
             oc_plazo_entrega: None,
             factura_path: None,
+            categoria_gasto: None,
+            vehiculo_id: None,
         },
         CreateExpediente {
             numero: "EXP-002".to_string(),
@@ -339,6 +339,8 @@ pub async fn populate_mock_data(pools: State<'_, DatabasePool>) -> Result<String
             oc_forma_pago: None,
             oc_plazo_entrega: None,
             factura_path: None,
+            categoria_gasto: None,
+            vehiculo_id: None,
         },
         CreateExpediente {
             numero: "EXP-003".to_string(),
@@ -368,6 +370,8 @@ pub async fn populate_mock_data(pools: State<'_, DatabasePool>) -> Result<String
             oc_forma_pago: None,
             oc_plazo_entrega: None,
             factura_path: None,
+            categoria_gasto: None,
+            vehiculo_id: None,
         },
         // PRÓXIMOS A VENCER
         CreateExpediente {
@@ -398,6 +402,8 @@ pub async fn populate_mock_data(pools: State<'_, DatabasePool>) -> Result<String
             oc_forma_pago: None,
             oc_plazo_entrega: None,
             factura_path: None,
+            categoria_gasto: None,
+            vehiculo_id: None,
         },
         CreateExpediente {
             numero: "EXP-005".to_string(),
@@ -427,6 +433,8 @@ pub async fn populate_mock_data(pools: State<'_, DatabasePool>) -> Result<String
             oc_forma_pago: None,
             oc_plazo_entrega: None,
             factura_path: None,
+            categoria_gasto: None,
+            vehiculo_id: None,
         },
         // ÓRDENES DE COMPRA
         CreateExpediente {
@@ -457,6 +465,8 @@ pub async fn populate_mock_data(pools: State<'_, DatabasePool>) -> Result<String
             oc_forma_pago: Some("Transferencia".to_string()),
             oc_plazo_entrega: Some("15 días".to_string()),
             factura_path: None,
+            categoria_gasto: None,
+            vehiculo_id: None,
         },
         CreateExpediente {
             numero: "PAG-002".to_string(),
@@ -486,6 +496,8 @@ pub async fn populate_mock_data(pools: State<'_, DatabasePool>) -> Result<String
             oc_forma_pago: Some("Cheque".to_string()),
             oc_plazo_entrega: Some("Inmediato".to_string()),
             factura_path: None,
+            categoria_gasto: None,
+            vehiculo_id: None,
         },
         // PENDIENTES
         CreateExpediente {
@@ -516,6 +528,8 @@ pub async fn populate_mock_data(pools: State<'_, DatabasePool>) -> Result<String
             oc_forma_pago: None,
             oc_plazo_entrega: None,
             factura_path: None,
+            categoria_gasto: None,
+            vehiculo_id: None,
         },
         CreateExpediente {
             numero: "EXP-010".to_string(),
@@ -545,6 +559,8 @@ pub async fn populate_mock_data(pools: State<'_, DatabasePool>) -> Result<String
             oc_forma_pago: None,
             oc_plazo_entrega: None,
             factura_path: None,
+            categoria_gasto: None,
+            vehiculo_id: None,
         },
     ];
 
@@ -557,4 +573,59 @@ pub async fn populate_mock_data(pools: State<'_, DatabasePool>) -> Result<String
     }
 
     Ok(format!("Se insertaron {} expedientes de prueba", count))
+}
+
+/// Clasificar un gasto según palabras clave y detectar vehículo relacionado
+/// Retorna la categoría detectada, palabras clave encontradas y patente si está disponible
+#[tauri::command]
+pub async fn clasificar_gasto_expediente(
+    asunto: String,
+    descripcion: Option<String>,
+    tema: Option<String>,
+) -> Result<ClassificationResult, String> {
+    let classification = GastoClassifier::classify(&asunto, descripcion.as_deref(), tema.as_deref());
+
+    match classification {
+        Some(class) => {
+            let categoria_str = match class.categoria {
+                CategoriaGasto::Combustible => "Combustible",
+                CategoriaGasto::Repuestos => "Repuestos",
+                CategoriaGasto::Mantenimiento => "Mantenimiento",
+                CategoriaGasto::Otro => "Otro",
+            }.to_string();
+
+            Ok(ClassificationResult {
+                categoria: Some(categoria_str),
+                palabras_clave: class.palabras_clave_detectadas,
+                patente_detectada: class.patente_detectada,
+            })
+        }
+        None => Ok(ClassificationResult {
+            categoria: None,
+            palabras_clave: vec![],
+            patente_detectada: None,
+        }),
+    }
+}
+
+/// Obtener expedientes de pago vinculados a un vehículo
+#[tauri::command]
+pub async fn get_gastos_by_vehiculo(
+    pools: State<'_, DatabasePool>,
+    vehiculo_id: String,
+) -> Result<Vec<Expediente>, String> {
+    ExpedienteRepository::get_by_vehiculo_id(pools.get_sqlite(), &vehiculo_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Obtener expedientes de pago por categoría de gasto
+#[tauri::command]
+pub async fn get_gastos_by_categoria(
+    pools: State<'_, DatabasePool>,
+    categoria: String,
+) -> Result<Vec<Expediente>, String> {
+    ExpedienteRepository::get_by_categoria_gasto(pools.get_sqlite(), &categoria)
+        .await
+        .map_err(|e| e.to_string())
 }
