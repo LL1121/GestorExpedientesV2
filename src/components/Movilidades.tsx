@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Truck, Fuel, Package, Plus, Edit, Trash2, TrendingUp, AlertCircle, CheckCircle, ChevronDown, Wrench } from "lucide-react";
+import { Truck, Fuel, Package, Plus, Edit, Trash2, TrendingUp, AlertCircle, CheckCircle, ChevronDown, Wrench, FileText, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ConfirmDialog } from "./ConfirmDialog";
 import { cn } from "@/lib/utils";
 import type { Vehiculo, CreateVehiculoInput, TicketCombustible, CreateTicketInput, Consumible, CreateConsumibleInput, HistorialMecanico, CreateHistorialMecanicoInput } from "@/types/vehiculo";
+import type { Expediente, CategoriaGasto } from "@/types/expediente";
 
 type ActiveTab = "vehiculos" | "combustible" | "consumibles" | "historial";
 
@@ -38,6 +39,8 @@ export default function Movilidades() {
   const [editingTicket, setEditingTicket] = useState<TicketCombustible | null>(null);
   const [editingConsumible, setEditingConsumible] = useState<Consumible | null>(null);
   const [editingHistorial, setEditingHistorial] = useState<HistorialMecanico | null>(null);
+  const [gastosVinculados, setGastosVinculados] = useState<Expediente[]>([]);
+  const [loadingGastos, setLoadingGastos] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
@@ -71,6 +74,31 @@ export default function Movilidades() {
   useEffect(() => {
     loadData();
   }, [activeTab]);
+
+  // Cargar gastos vinculados cuando se selecciona un vehículo
+  useEffect(() => {
+    const loadGastosVinculados = async () => {
+      if (!selectedVehiculo) {
+        setGastosVinculados([]);
+        return;
+      }
+
+      setLoadingGastos(true);
+      try {
+        const gastos = await invoke<Expediente[]>("get_gastos_by_vehiculo", {
+          vehiculoId: selectedVehiculo.patente,
+        });
+        setGastosVinculados(gastos);
+      } catch (error) {
+        console.error("Error al cargar gastos vinculados:", error);
+        setGastosVinculados([]);
+      } finally {
+        setLoadingGastos(false);
+      }
+    };
+
+    loadGastosVinculados();
+  }, [selectedVehiculo]);
 
   const loadData = async () => {
     setLoading(true);
@@ -158,6 +186,20 @@ export default function Movilidades() {
       await loadData();
     } catch (error) {
       alert("Error al crear consumible: " + error);
+    }
+  };
+
+  // Helper para obtener estilo de categoría de gasto
+  const getCategoriaStyle = (categoria?: CategoriaGasto | null) => {
+    switch (categoria) {
+      case "Combustible":
+        return { icon: Fuel, color: "text-blue-600", bgColor: "bg-blue-50", label: "Combustible" };
+      case "Repuestos":
+        return { icon: Package, color: "text-amber-600", bgColor: "bg-amber-50", label: "Repuestos" };
+      case "Mantenimiento":
+        return { icon: Wrench, color: "text-purple-600", bgColor: "bg-purple-50", label: "Mantenimiento" };
+      default:
+        return { icon: DollarSign, color: "text-slate-600", bgColor: "bg-slate-50", label: "Otro" };
     }
   };
 
@@ -1401,6 +1443,71 @@ export default function Movilidades() {
                   </div>
                 </div>
               )}
+
+              {/* Sección de gastos vinculados */}
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="w-5 h-5 text-slate-500" />
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Gastos Vinculados</h3>
+                </div>
+
+                {loadingGastos ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-sm">Cargando gastos...</p>
+                  </div>
+                ) : gastosVinculados.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400">
+                    <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No hay gastos vinculados a este vehículo</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                    {gastosVinculados.map((gasto) => {
+                      const categoriaStyle = getCategoriaStyle(gasto.categoria_gasto);
+                      const Icon = categoriaStyle.icon;
+                      
+                      return (
+                        <div
+                          key={gasto.id}
+                          className="border rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={cn("p-1.5 rounded", categoriaStyle.bgColor)}>
+                                <Icon className={cn("w-4 h-4", categoriaStyle.color)} />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                  Expte. {gasto.numero}/{gasto.año}
+                                </p>
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  {categoriaStyle.label}
+                                </Badge>
+                              </div>
+                            </div>
+                            <Badge variant={gasto.estado === "Finalizado" ? "default" : "secondary"} className="text-xs">
+                              {gasto.estado}
+                            </Badge>
+                          </div>
+                          
+                          <p className="text-sm text-slate-700 dark:text-slate-300 mb-2 line-clamp-2">
+                            {gasto.asunto}
+                          </p>
+                          
+                          <div className="flex items-center justify-between text-xs text-slate-500">
+                            <span>{new Date(gasto.fecha_inicio).toLocaleDateString('es-AR')}</span>
+                            {gasto.oc_señor && (
+                              <span className="font-medium">Proveedor: {gasto.oc_señor}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               <div className="border-t pt-4">
                 <p className="text-xs text-slate-500">Creado: {new Date(selectedVehiculo.created_at).toLocaleString('es-AR')}</p>
                 <p className="text-xs text-slate-500">Última actualización: {new Date(selectedVehiculo.updated_at).toLocaleString('es-AR')}</p>

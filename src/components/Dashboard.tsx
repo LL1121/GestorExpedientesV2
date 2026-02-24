@@ -62,7 +62,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ExpedienteService } from "@/services/expediente.service";
-import type { Expediente, EstadoExpediente, TipoExpediente, Prioridad, CreateExpedienteInput } from "@/types/expediente";
+import type { Expediente, EstadoExpediente, TipoExpediente, Prioridad, CreateExpedienteInput, ClassificationResult, CategoriaGasto } from "@/types/expediente";
 import type { NuevaOCPreparada } from "@/types/orden_compra";
 import { OrdenCompraService } from "@/services/orden_compra.service";
 import Movilidades from "@/components/Movilidades";
@@ -73,6 +73,7 @@ import ConfigTopes from "@/components/ConfigTopes";
 import Notificaciones from "@/components/Notificaciones";
 import NotificationBellIcon from "@/components/NotificationBellIcon";
 import { ToastContainer, useToast } from "@/components/Toast";
+import { GastoSuggestionModal } from "@/components/GastoSuggestionModal";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
 type ActiveView = "dashboard" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc" | "preview-oc" | "notificaciones";
@@ -114,6 +115,12 @@ export default function Dashboard() {
     y: number;
     items: { label: string; icon?: ElementType; onClick: () => void; danger?: boolean }[];
   }>({ visible: false, x: 0, y: 0, items: [] });
+
+  // Estados para clasificación de gastos
+  const [classificationResult, setClassificationResult] = useState<ClassificationResult | null>(null);
+  const [showClassificationModal, setShowClassificationModal] = useState(false);
+  const [editClassificationResult, setEditClassificationResult] = useState<ClassificationResult | null>(null);
+  const [showEditClassificationModal, setShowEditClassificationModal] = useState(false);
 
   // Sistema de Toast
   const { toasts, removeToast, success: showSuccess, error: showError, info: showInfo } = useToast();
@@ -204,7 +211,7 @@ export default function Dashboard() {
 
         // Evento: Error al procesar expediente
         const unlisten2 = await listen<any>('expediente_error', (event) => {
-          const { error, timestamp } = event.payload;
+          const { error } = event.payload;
           console.error("❌ Error procesando expediente:", error);
           
           showError(
@@ -239,6 +246,83 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  // Clasificación automática para nuevos expedientes de tipo Pago
+  useEffect(() => {
+    const clasificarGasto = async () => {
+      if (newExpediente.tipo !== "Pago") {
+        setClassificationResult(null);
+        return;
+      }
+
+      const asunto = newExpediente.asunto || "";
+      const descripcion = newExpediente.descripcion || "";
+      const tema = newExpediente.tema || "";
+
+      // Solo clasificar si hay texto suficiente
+      if (asunto.length < 3 && descripcion.length < 3 && tema.length < 3) {
+        setClassificationResult(null);
+        return;
+      }
+
+      try {
+        const result = await invoke<ClassificationResult>("clasificar_gasto_expediente", {
+          asunto,
+          descripcion,
+          tema,
+        });
+
+        // Solo mostrar modal si hay categoría detectada o patente detectada
+        if (result.categoria !== "Otro" || result.patente_detectada) {
+          setClassificationResult(result);
+          setShowClassificationModal(true);
+        }
+      } catch (err) {
+        console.error("Error al clasificar gasto:", err);
+      }
+    };
+
+    // Debounce para evitar clasificaciones excesivas
+    const timer = setTimeout(clasificarGasto, 800);
+    return () => clearTimeout(timer);
+  }, [newExpediente.tipo, newExpediente.asunto, newExpediente.descripcion, newExpediente.tema]);
+
+  // Clasificación automática para expedientes en edición de tipo Pago
+  useEffect(() => {
+    const clasificarGastoEdit = async () => {
+      if (!editingExpediente || editingExpediente.tipo !== "Pago") {
+        setEditClassificationResult(null);
+        return;
+      }
+
+      const asunto = editingExpediente.asunto || "";
+      const descripcion = editingExpediente.descripcion || "";
+      const tema = editingExpediente.tema || "";
+
+      if (asunto.length < 3 && descripcion.length < 3 && tema.length < 3) {
+        setEditClassificationResult(null);
+        return;
+      }
+
+      try {
+        const result = await invoke<ClassificationResult>("clasificar_gasto_expediente", {
+          asunto,
+          descripcion,
+          tema,
+        });
+
+        if (result.categoria !== "Otro" || result.patente_detectada) {
+          setEditClassificationResult(result);
+          setShowEditClassificationModal(true);
+        }
+      } catch (err) {
+        console.error("Error al clasificar gasto:", err);
+      }
+    };
+
+    const timer = setTimeout(clasificarGastoEdit, 800);
+    return () => clearTimeout(timer);
+  }, [editingExpediente?.tipo, editingExpediente?.asunto, editingExpediente?.descripcion, editingExpediente?.tema]);
 
   const handleCreateExpediente = async () => {
     try {
@@ -291,6 +375,8 @@ export default function Dashboard() {
         updateData.oc_forma_pago = editingExpediente.oc_forma_pago;
         updateData.oc_plazo_entrega = editingExpediente.oc_plazo_entrega;
         updateData.factura_path = editingExpediente.factura_path;
+        updateData.categoria_gasto = editingExpediente.categoria_gasto;
+        updateData.vehiculo_id = editingExpediente.vehiculo_id;
       }
 
       await ExpedienteService.update(editingExpediente.id, updateData);
@@ -300,6 +386,36 @@ export default function Dashboard() {
     } catch (err) {
       alert("Error al actualizar expediente: " + formatError(err));
     }
+  };
+
+  const handleConfirmClassification = (categoria: CategoriaGasto, vehiculoId: string | null) => {
+    setNewExpediente({
+      ...newExpediente,
+      categoria_gasto: categoria === "Otro" ? undefined : categoria,
+      vehiculo_id: vehiculoId || undefined,
+    });
+
+    setShowClassificationModal(false);
+    showSuccess(
+      "Clasificación aplicada",
+      `Categoría: ${categoria}${vehiculoId ? ` - Vehículo: ${vehiculoId}` : ""}`
+    );
+  };
+
+  const handleConfirmEditClassification = (categoria: CategoriaGasto, vehiculoId: string | null) => {
+    if (!editingExpediente) return;
+
+    setEditingExpediente({
+      ...editingExpediente,
+      categoria_gasto: categoria === "Otro" ? undefined : categoria,
+      vehiculo_id: vehiculoId || undefined,
+    });
+
+    setShowEditClassificationModal(false);
+    showSuccess(
+      "Clasificación aplicada",
+      `Categoría: ${categoria}${vehiculoId ? ` - Vehículo: ${vehiculoId}` : ""}`
+    );
   };
 
   const handleViewChange = (view: ActiveView) => {
@@ -2359,6 +2475,30 @@ export default function Dashboard() {
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* Modal de sugerencia de clasificación para nuevo expediente */}
+      {classificationResult && (
+        <GastoSuggestionModal
+          open={showClassificationModal}
+          categoria={classificationResult.categoria}
+          patente={classificationResult.patente_detectada}
+          palabras_clave={classificationResult.palabras_clave}
+          onConfirm={handleConfirmClassification}
+          onCancel={() => setShowClassificationModal(false)}
+        />
+      )}
+
+      {/* Modal de sugerencia de clasificación para expediente en edición */}
+      {editClassificationResult && (
+        <GastoSuggestionModal
+          open={showEditClassificationModal}
+          categoria={editClassificationResult.categoria}
+          patente={editClassificationResult.patente_detectada}
+          palabras_clave={editClassificationResult.palabras_clave}
+          onConfirm={handleConfirmEditClassification}
+          onCancel={() => setShowEditClassificationModal(false)}
+        />
+      )}
     </div>
   );
 }
