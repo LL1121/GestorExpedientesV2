@@ -41,6 +41,7 @@ export default function Movilidades() {
   const [editingHistorial, setEditingHistorial] = useState<HistorialMecanico | null>(null);
   const [gastosVinculados, setGastosVinculados] = useState<Expediente[]>([]);
   const [loadingGastos, setLoadingGastos] = useState(false);
+  const [filtroCategoria, setFiltroCategoria] = useState<CategoriaGasto | "Todos">("Todos");
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
@@ -202,6 +203,25 @@ export default function Movilidades() {
         return { icon: DollarSign, color: "text-slate-600", bgColor: "bg-slate-50", label: "Otro" };
     }
   };
+
+  // Filtrar gastos según categoría seleccionada
+  const gastosFiltrados = filtroCategoria === "Todos" 
+    ? gastosVinculados 
+    : gastosVinculados.filter(g => g.categoria_gasto === filtroCategoria);
+
+  // Calcular estadísticas de gastos
+  const calcularEstadisticas = () => {
+    const stats = {
+      total: gastosVinculados.length,
+      combustible: gastosVinculados.filter(g => g.categoria_gasto === "Combustible").length,
+      repuestos: gastosVinculados.filter(g => g.categoria_gasto === "Repuestos").length,
+      mantenimiento: gastosVinculados.filter(g => g.categoria_gasto === "Mantenimiento").length,
+      otros: gastosVinculados.filter(g => !g.categoria_gasto || g.categoria_gasto === "Otro").length,
+    };
+    return stats;
+  };
+
+  const estadisticas = calcularEstadisticas();
 
   const handleDeleteVehiculo = async (_id: string) => {
     setConfirmDialog({
@@ -1391,7 +1411,10 @@ export default function Movilidades() {
       </Dialog>
 
       {/* Dialog: Detalles de Vehículo */}
-      <Dialog open={!!selectedVehiculo} onOpenChange={() => setSelectedVehiculo(null)}>
+      <Dialog open={!!selectedVehiculo} onOpenChange={() => {
+        setSelectedVehiculo(null);
+        setFiltroCategoria("Todos");
+      }}>
         <DialogContent className="max-w-2xl bg-white dark:bg-slate-800">
           <DialogHeader>
             <DialogTitle>Detalles del Vehículo</DialogTitle>
@@ -1462,49 +1485,126 @@ export default function Movilidades() {
                     <p className="text-sm">No hay gastos vinculados a este vehículo</p>
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                    {gastosVinculados.map((gasto) => {
-                      const categoriaStyle = getCategoriaStyle(gasto.categoria_gasto);
-                      const Icon = categoriaStyle.icon;
-                      
-                      return (
-                        <div
-                          key={gasto.id}
-                          className="border rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <div className={cn("p-1.5 rounded", categoriaStyle.bgColor)}>
-                                <Icon className={cn("w-4 h-4", categoriaStyle.color)} />
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium text-slate-900 dark:text-white">
-                                  Expte. {gasto.numero}/{gasto.año}
-                                </p>
-                                <Badge variant="outline" className="text-xs mt-1">
-                                  {categoriaStyle.label}
-                                </Badge>
-                              </div>
-                            </div>
-                            <Badge variant={gasto.estado === "Finalizado" ? "default" : "secondary"} className="text-xs">
-                              {gasto.estado}
-                            </Badge>
-                          </div>
-                          
-                          <p className="text-sm text-slate-700 dark:text-slate-300 mb-2 line-clamp-2">
-                            {gasto.asunto}
-                          </p>
-                          
-                          <div className="flex items-center justify-between text-xs text-slate-500">
-                            <span>{new Date(gasto.fecha_inicio).toLocaleDateString('es-AR')}</span>
-                            {gasto.oc_señor && (
-                              <span className="font-medium">Proveedor: {gasto.oc_señor}</span>
-                            )}
-                          </div>
+                  <>
+                    {/* Estadísticas */}
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Fuel className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                          <p className="text-xs font-medium text-blue-700 dark:text-blue-200">Combustible</p>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{estadisticas.combustible}</p>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900 dark:to-amber-800 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Package className="w-4 h-4 text-amber-600 dark:text-amber-300" />
+                          <p className="text-xs font-medium text-amber-700 dark:text-amber-200">Repuestos</p>
+                        </div>
+                        <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">{estadisticas.repuestos}</p>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900 dark:to-purple-800 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Wrench className="w-4 h-4 text-purple-600 dark:text-purple-300" />
+                          <p className="text-xs font-medium text-purple-700 dark:text-purple-200">Mantenimiento</p>
+                        </div>
+                        <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{estadisticas.mantenimiento}</p>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <DollarSign className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Total</p>
+                        </div>
+                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{estadisticas.total}</p>
+                      </div>
+                    </div>
+
+                    {/* Filtros */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <Button
+                        size="sm"
+                        variant={filtroCategoria === "Todos" ? "default" : "outline"}
+                        onClick={() => setFiltroCategoria("Todos")}
+                        className="text-xs"
+                      >
+                        Todos ({estadisticas.total})
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={filtroCategoria === "Combustible" ? "default" : "outline"}
+                        onClick={() => setFiltroCategoria("Combustible")}
+                        className="text-xs"
+                      >
+                        <Fuel className="w-3 h-3 mr-1" />
+                        Combustible ({estadisticas.combustible})
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={filtroCategoria === "Repuestos" ? "default" : "outline"}
+                        onClick={() => setFiltroCategoria("Repuestos")}
+                        className="text-xs"
+                      >
+                        <Package className="w-3 h-3 mr-1" />
+                        Repuestos ({estadisticas.repuestos})
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={filtroCategoria === "Mantenimiento" ? "default" : "outline"}
+                        onClick={() => setFiltroCategoria("Mantenimiento")}
+                        className="text-xs"
+                      >
+                        <Wrench className="w-3 h-3 mr-1" />
+                        Mantenimiento ({estadisticas.mantenimiento})
+                      </Button>
+                    </div>
+
+                    {/* Lista de gastos filtrados */}
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                      {gastosFiltrados.map((gasto) => {
+                        const categoriaStyle = getCategoriaStyle(gasto.categoria_gasto);
+                        const Icon = categoriaStyle.icon;
+                        
+                        return (
+                          <div
+                            key={gasto.id}
+                            className="border rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className={cn("p-1.5 rounded", categoriaStyle.bgColor)}>
+                                  <Icon className={cn("w-4 h-4", categoriaStyle.color)} />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                    Expte. {gasto.numero}/{gasto.año}
+                                  </p>
+                                  <Badge variant="outline" className="text-xs mt-1">
+                                    {categoriaStyle.label}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <Badge variant={gasto.estado === "Finalizado" ? "default" : "secondary"} className="text-xs">
+                                {gasto.estado}
+                              </Badge>
+                            </div>
+                            
+                            <p className="text-sm text-slate-700 dark:text-slate-300 mb-2 line-clamp-2">
+                              {gasto.asunto}
+                            </p>
+                            
+                            <div className="flex items-center justify-between text-xs text-slate-500">
+                              <span>{new Date(gasto.fecha_inicio).toLocaleDateString('es-AR')}</span>
+                              {gasto.oc_señor && (
+                                <span className="font-medium">Proveedor: {gasto.oc_señor}</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -1515,7 +1615,12 @@ export default function Movilidades() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedVehiculo(null)}>Cerrar</Button>
+            <Button variant="outline" onClick={() => {
+              setSelectedVehiculo(null);
+              setFiltroCategoria("Todos");
+            }}>
+              Cerrar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
