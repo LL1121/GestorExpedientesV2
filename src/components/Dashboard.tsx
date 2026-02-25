@@ -74,6 +74,7 @@ import Notificaciones from "@/components/Notificaciones";
 import NotificationBellIcon from "@/components/NotificationBellIcon";
 import { ToastContainer, useToast } from "@/components/Toast";
 import { GastoSuggestionModal } from "@/components/GastoSuggestionModal";
+import { useNotification } from "@/hooks/useNotification";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
 type ActiveView = "dashboard" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc" | "preview-oc" | "notificaciones";
@@ -124,6 +125,20 @@ export default function Dashboard() {
 
   // Sistema de Toast
   const { toasts, removeToast, success: showSuccess, error: showError, info: showInfo } = useToast();
+  
+  // Sistema de Notificaciones con sonido
+  const notification = useNotification();
+  const {
+    success: notifySuccess,
+    error: notifyError,
+    warning: notifyWarning,
+    setSoundEnabled: persistSoundEnabled,
+    setSystemNotificationEnabled: persistSystemNotificationEnabled,
+  } = notification;
+  const prevCriticalCountRef = useRef(0);
+  const hasLoadedCriticalCountRef = useRef(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => notification.getSoundEnabled());
+  const [systemNotificationsEnabled, setSystemNotificationsEnabled] = useState(() => notification.getSystemNotificationEnabled());
 
   const formatError = (err: unknown) => {
     if (err instanceof Error) return err.message;
@@ -142,11 +157,36 @@ export default function Dashboard() {
     try {
       const result = await invoke<{ stats: { criticos: number } }>("get_expedientes_notificaciones");
       if (result?.stats?.criticos !== undefined) {
-        setNotificationCount(result.stats.criticos);
+        const currentCriticos = result.stats.criticos;
+        if (
+          hasLoadedCriticalCountRef.current &&
+          currentCriticos > prevCriticalCountRef.current &&
+          currentCriticos > 0
+        ) {
+          void notifyWarning(
+            "Nuevas alertas críticas",
+            `Tenés ${currentCriticos} expediente(s) crítico(s) para revisar.`
+          );
+        }
+
+        prevCriticalCountRef.current = currentCriticos;
+        hasLoadedCriticalCountRef.current = true;
+        setNotificationCount(currentCriticos);
       }
     } catch (err) {
       console.error("Error cargando contador de notificaciones:", err);
     }
+  };
+
+  const handleTestNotification = async () => {
+    await notifySuccess(
+      "Prueba de notificación",
+      "Si ves este popup y escuchás sonido, está todo funcionando correctamente."
+    );
+    showInfo(
+      "Prueba enviada",
+      `Sonido: ${soundEnabled ? "ON" : "OFF"} | Popup: ${systemNotificationsEnabled ? "ON" : "OFF"}`
+    );
   };
 
   // Cargar expedientes y notificaciones al montar el componente
@@ -198,6 +238,10 @@ export default function Dashboard() {
           console.log("📋 Expediente procesado:", nro_infogov, resumen);
           
           showSuccess(mensaje || "Expediente capturado desde InfoGov", `${resumen}`);
+          void notifySuccess(
+            "Expediente procesado",
+            mensaje || `Se procesó el expediente ${nro_infogov || "desde InfoGov"}`
+          );
           
           // Recargar lista de expedientes
           loadExpedientes();
@@ -218,6 +262,10 @@ export default function Dashboard() {
             "Error al capturar desde InfoGov",
             error || "No se pudo procesar el contenido del portapapeles"
           );
+          void notifyError(
+            "Error en captura de expediente",
+            error || "No se pudo procesar el contenido del portapapeles"
+          );
         });
         unlisteners.push(unlisten2);
 
@@ -232,7 +280,7 @@ export default function Dashboard() {
     return () => {
       unlisteners.forEach(unlisten => unlisten());
     };
-  }, [showSuccess, showError, showInfo]);
+  }, [showSuccess, showError, showInfo, notifySuccess, notifyError]);
 
   const loadExpedientes = async () => {
     try {
@@ -1349,6 +1397,90 @@ export default function Dashboard() {
                     <div>
                       <h3 className="text-lg font-semibold text-slate-900 mb-4">Preferencias de Notificaciones</h3>
                       <div className="space-y-3">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-white">Sonido de notificaciones</p>
+                            <p className="text-sm text-slate-600">Reproducir sonido al recibir eventos importantes</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = !soundEnabled;
+                              setSoundEnabled(next);
+                              persistSoundEnabled(next);
+                              showInfo(
+                                "Preferencia actualizada",
+                                next ? "Sonido activado" : "Sonido desactivado"
+                              );
+                            }}
+                            className={cn(
+                              "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                              soundEnabled ? "bg-blue-600" : "bg-slate-300"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                                soundEnabled ? "translate-x-6" : "translate-x-1"
+                              )}
+                            />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-white">Popup nativo de la app</p>
+                            <p className="text-sm text-slate-600">Mostrar ventana popup propia del programa (no depende de Windows)</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = !systemNotificationsEnabled;
+                              setSystemNotificationsEnabled(next);
+                              persistSystemNotificationEnabled(next);
+                              showInfo(
+                                "Preferencia actualizada",
+                                next ? "Popup nativo activado" : "Popup nativo desactivado"
+                              );
+                            }}
+                            className={cn(
+                              "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                              systemNotificationsEnabled ? "bg-blue-600" : "bg-slate-300"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                                systemNotificationsEnabled ? "translate-x-6" : "translate-x-1"
+                              )}
+                            />
+                          </button>
+                        </div>
+
+                        <div className="border-t border-slate-200 pt-3">
+                          <p className="text-xs text-slate-500 px-1">Alertas funcionales actuales: procesamiento por Alt+I, errores de captura y nuevas alertas críticas.</p>
+                        </div>
+
+                        <div className="p-4 bg-blue-50/70 border border-blue-100 rounded-lg">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <p className="font-medium text-slate-900 dark:text-white">Prueba rápida</p>
+                              <p className="text-sm text-slate-600">Envía una notificación de prueba con tu configuración actual.</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="shrink-0"
+                              onClick={() => {
+                                void handleTestNotification();
+                              }}
+                            >
+                              <Bell className="h-4 w-4 mr-2" />
+                              Probar notificación
+                            </Button>
+                          </div>
+                        </div>
+
                         {[
                           { label: "Nuevos expedientes", description: "Notificar cuando se cree un nuevo expediente" },
                           { label: "Cambios de estado", description: "Alertar cuando un expediente cambie de estado" },
@@ -1360,8 +1492,8 @@ export default function Dashboard() {
                               <p className="font-medium text-slate-900 dark:text-white">{item.label}</p>
                               <p className="text-sm text-slate-600">{item.description}</p>
                             </div>
-                            <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-blue-600">
-                              <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-6" />
+                            <button type="button" className="relative inline-flex h-6 w-11 items-center rounded-full bg-slate-300" disabled>
+                              <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-1" />
                             </button>
                           </div>
                         ))}

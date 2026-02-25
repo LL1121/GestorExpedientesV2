@@ -14,6 +14,9 @@ pub use error::AppError;
 use std::env;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri::Emitter;
+use tauri::Manager;
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -64,6 +67,13 @@ pub fn run() {
                 .plugin(tauri_plugin_opener::init())
                 .plugin(tauri_plugin_global_shortcut::Builder::new().build())
                 .plugin(tauri_plugin_clipboard_manager::init())
+                .plugin(tauri_plugin_notification::init())
+                .on_window_event(|window, event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
+                })
                 .manage(pools.clone())
                 .invoke_handler(tauri::generate_handler![
                     greet,
@@ -120,6 +130,51 @@ pub fn run() {
                 .setup(move |app| {
                     let app_handle = app.handle();
                     let pools_clone = pools.clone();
+
+                    // Crear icono de bandeja del sistema (tray)
+                    let show_item = MenuItemBuilder::with_id("show", "Abrir").build(app)?;
+                    let quit_item = MenuItemBuilder::with_id("quit", "Cerrar").build(app)?;
+                    let tray_menu = MenuBuilder::new(app)
+                        .items(&[&show_item, &quit_item])
+                        .build()?;
+
+                    let tray_icon = TrayIconBuilder::with_id("main-tray")
+                        .icon(
+                            app.default_window_icon()
+                                .expect("No se encontró icono por defecto para la app")
+                                .clone(),
+                        )
+                        .tooltip("Gestor de Irrigación")
+                        .menu(&tray_menu)
+                        .on_menu_event(|app: &tauri::AppHandle, event| match event.id.as_ref() {
+                            "show" => {
+                                if let Some(window) = app.get_webview_window("main") {
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                            }
+                            "quit" => {
+                                app.exit(0);
+                            }
+                            _ => {}
+                        })
+                        .on_tray_icon_event(|tray: &tauri::tray::TrayIcon, event| {
+                            if let TrayIconEvent::Click {
+                                button: MouseButton::Left,
+                                button_state: MouseButtonState::Up,
+                                ..
+                            } = event
+                            {
+                                if let Some(window) = tray.app_handle().get_webview_window("main") {
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                            }
+                        })
+                        .build(app)?;
+
+                    // Mantener referencia viva del tray durante toda la ejecución
+                    app.manage(tray_icon);
 
                     // Registrar el atajo Alt+I en el setup
                     let shortcut_manager = app.global_shortcut();
