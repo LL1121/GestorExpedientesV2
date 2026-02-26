@@ -1,5 +1,27 @@
 export type TipoLicencia = "B1" | "B2" | "C1" | "C2" | "D1" | "D2" | "Profesional";
 
+export type TipoAdjuntoLegajo = "dni" | "titulo" | "curriculum" | "licencia";
+
+export interface AdjuntoLegajo {
+  nombre: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string;
+  uploadedAt: string;
+}
+
+export type TipoFormacion = "Curso" | "Estudio" | "Título" | "Capacitación" | "Certificación";
+
+export interface FormacionItem {
+  id: string;
+  tipo: TipoFormacion;
+  nombre: string;
+  institucion?: string;
+  fecha?: string;
+  estado?: "Completo" | "En curso";
+  observaciones?: string;
+}
+
 export interface Agente {
   id: string;
   nombre: string;
@@ -21,6 +43,10 @@ export interface Agente {
   talla_camisa?: string;
   talla_pantalon?: string;
   talla_calzado?: string;
+  // Formación
+  formacion?: FormacionItem[];
+  // Adjuntos de legajo
+  adjuntos_legajo?: Partial<Record<TipoAdjuntoLegajo, AdjuntoLegajo>>;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +71,10 @@ export interface CreateAgenteInput {
   talla_camisa?: string;
   talla_pantalon?: string;
   talla_calzado?: string;
+  // Formación
+  formacion?: FormacionItem[];
+  // Adjuntos de legajo
+  adjuntos_legajo?: Partial<Record<TipoAdjuntoLegajo, AdjuntoLegajo>>;
 }
 
 export type SemaforoStatus = "rojo" | "naranja" | "verde";

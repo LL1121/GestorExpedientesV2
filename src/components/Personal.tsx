@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Users, Plus, Edit, Trash2, AlertCircle, Clock, User, Briefcase, CreditCard, Shirt } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Users, Plus, Edit, Trash2, User, Briefcase, CreditCard, Shirt, GraduationCap, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,10 +7,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ToastContainer, useToast } from "@/components/Toast";
 import { cn } from "@/lib/utils";
-import type { Agente, CreateAgenteInput, AgenteConSemaforo, SemaforoStatus } from "@/types/agente";
+import jsPDF from "jspdf";
+import type {
+  Agente,
+  CreateAgenteInput,
+  AgenteConSemaforo,
+  SemaforoStatus,
+  TipoAdjuntoLegajo,
+  AdjuntoLegajo,
+} from "@/types/agente";
 
-type DetailTab = "legajo" | "personal" | "laboral" | "licencia" | "tallas";
+type DetailTab = "legajo" | "personal" | "laboral" | "licencia" | "tallas" | "formacion";
 
 export default function Personal() {
   const [agentes, setAgentes] = useState<AgenteConSemaforo[]>([]);
@@ -21,6 +30,13 @@ export default function Personal() {
   const [detailActiveTab, setDetailActiveTab] = useState<DetailTab>("legajo");
   const [editingAgente, setEditingAgente] = useState<AgenteConSemaforo | null>(null);
   const [newAgente, setNewAgente] = useState<Partial<CreateAgenteInput>>({});
+  const [adjuntosPorAgente, setAdjuntosPorAgente] = useState<Record<string, Partial<Record<TipoAdjuntoLegajo, AdjuntoLegajo>>>>({});
+  const fileInputRefs = useRef<Record<TipoAdjuntoLegajo, HTMLInputElement | null>>({
+    dni: null,
+    titulo: null,
+    curriculum: null,
+    licencia: null,
+  });
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
@@ -32,6 +48,13 @@ export default function Personal() {
     message: "",
     onConfirm: () => {},
   });
+  const { toasts, removeToast, success: showSuccess, error: showError, warning: showWarning } = useToast();
+
+  const formatError = (error: unknown) => {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") return error;
+    return "Error desconocido";
+  };
 
   useEffect(() => {
     loadAgentes();
@@ -64,6 +87,24 @@ export default function Personal() {
           talla_camisa: "L",
           talla_pantalon: "42",
           talla_calzado: "42",
+          formacion: [
+            {
+              id: "f1-1",
+              tipo: "Título",
+              nombre: "Técnico en Mantenimiento Industrial",
+              institucion: "Instituto Técnico Regional",
+              fecha: "2012-12-01",
+              estado: "Completo",
+            },
+            {
+              id: "f1-2",
+              tipo: "Curso",
+              nombre: "Operación segura de maquinaria vial",
+              institucion: "Dirección de Capacitación Provincial",
+              fecha: "2024-08-15",
+              estado: "Completo",
+            },
+          ],
           created_at: new Date().toISOString(), 
           updated_at: new Date().toISOString() 
         },
@@ -85,6 +126,24 @@ export default function Personal() {
           talla_camisa: "M",
           talla_pantalon: "38",
           talla_calzado: "37",
+          formacion: [
+            {
+              id: "f2-1",
+              tipo: "Título",
+              nombre: "Tecnicatura en Higiene y Seguridad",
+              institucion: "Universidad Tecnológica",
+              fecha: "2010-11-20",
+              estado: "Completo",
+            },
+            {
+              id: "f2-2",
+              tipo: "Certificación",
+              nombre: "Auditor interno ISO 9001",
+              institucion: "IRAM",
+              fecha: "2023-05-02",
+              estado: "Completo",
+            },
+          ],
           created_at: new Date().toISOString(), 
           updated_at: new Date().toISOString() 
         },
@@ -106,6 +165,16 @@ export default function Personal() {
           talla_camisa: "XL",
           talla_pantalon: "44",
           talla_calzado: "43",
+          formacion: [
+            {
+              id: "f3-1",
+              tipo: "Estudio",
+              nombre: "Licenciatura en Administración",
+              institucion: "UNCuyo",
+              fecha: "2017-03-10",
+              estado: "Completo",
+            },
+          ],
           created_at: new Date().toISOString(), 
           updated_at: new Date().toISOString() 
         },
@@ -125,6 +194,16 @@ export default function Personal() {
           talla_camisa: "S",
           talla_pantalon: "36",
           talla_calzado: "36",
+          formacion: [
+            {
+              id: "f4-1",
+              tipo: "Capacitación",
+              nombre: "Gestión documental y archivo administrativo",
+              institucion: "Escuela de Gobierno",
+              fecha: "2025-10-08",
+              estado: "Completo",
+            },
+          ],
           created_at: new Date().toISOString(), 
           updated_at: new Date().toISOString() 
         },
@@ -132,6 +211,12 @@ export default function Personal() {
       
       const agentesConSemaforo = mockData.map(calcularSemaforo);
       setAgentes(agentesConSemaforo);
+      setAdjuntosPorAgente(
+        mockData.reduce<Record<string, Partial<Record<TipoAdjuntoLegajo, AdjuntoLegajo>>>>((acc, agente) => {
+          acc[agente.id] = agente.adjuntos_legajo || {};
+          return acc;
+        }, {})
+      );
     } catch (error) {
       console.error("Error al cargar agentes:", error);
     } finally {
@@ -167,15 +252,16 @@ export default function Personal() {
   const handleCreateAgente = async () => {
     try {
       if (!newAgente.nombre || !newAgente.apellido || !newAgente.dni || !newAgente.legajo) {
-        alert("Completa todos los campos requeridos");
+        showWarning("Campos incompletos", "Completa nombre, apellido, DNI y legajo");
         return;
       }
       // await invoke("create_agente", { data: newAgente });
       setIsAddDialogOpen(false);
       setNewAgente({});
       await loadAgentes();
+      showSuccess("Agente creado", "El agente se registró correctamente");
     } catch (error) {
-      alert("Error al crear agente: " + error);
+      showError("Error al crear agente", formatError(error));
     }
   };
 
@@ -189,12 +275,12 @@ export default function Personal() {
     if (!editingAgente) return;
     try {
       // await invoke("update_agente", { id: editingAgente.id, data: editingAgente });
-      alert("Agente actualizado exitosamente");
+      showSuccess("Agente actualizado", "Se guardaron los cambios correctamente");
       setIsEditDialogOpen(false);
       setEditingAgente(null);
       await loadAgentes();
     } catch (error) {
-      alert("Error al actualizar agente: " + error);
+      showError("Error al actualizar agente", formatError(error));
     }
   };
 
@@ -208,8 +294,9 @@ export default function Personal() {
         try {
           // await invoke("delete_agente", { id: _id });
           await loadAgentes();
+          showSuccess("Agente eliminado", "El registro se eliminó correctamente");
         } catch (error) {
-          alert("Error al eliminar: " + error);
+          showError("Error al eliminar agente", formatError(error));
         } finally {
           setConfirmDialog({ ...confirmDialog, open: false });
         }
@@ -245,8 +332,135 @@ export default function Personal() {
     return labels[status];
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("es-AR");
+  const getAdjuntosAgente = (agenteId: string, fallback?: Partial<Record<TipoAdjuntoLegajo, AdjuntoLegajo>>) => {
+    return adjuntosPorAgente[agenteId] || fallback || {};
+  };
+
+  const handleUploadAdjunto = (tipo: TipoAdjuntoLegajo, file: File | null) => {
+    if (!selectedAgente || !file) return;
+
+    setAdjuntosPorAgente((prev) => {
+      const current = prev[selectedAgente.id]?.[tipo];
+      if (current?.fileUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(current.fileUrl);
+      }
+
+      const fileUrl = URL.createObjectURL(file);
+      return {
+        ...prev,
+        [selectedAgente.id]: {
+          ...(prev[selectedAgente.id] || {}),
+          [tipo]: {
+            nombre: tipo.toUpperCase(),
+            fileName: file.name,
+            fileUrl,
+            mimeType: file.type,
+            uploadedAt: new Date().toISOString(),
+          },
+        },
+      };
+    });
+  };
+
+  const downloadAdjunto = (adjunto: AdjuntoLegajo) => {
+    const link = document.createElement("a");
+    link.href = adjunto.fileUrl;
+    link.download = adjunto.fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportarLegajo = (agente: AgenteConSemaforo) => {
+    const formacion = agente.formacion || [];
+    const adjuntos = getAdjuntosAgente(agente.id, agente.adjuntos_legajo);
+
+    try {
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 40;
+      const maxWidth = pageWidth - margin * 2;
+      let y = 48;
+
+      const addTitle = (text: string) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text(text, margin, y);
+        y += 24;
+      };
+
+      const addSection = (text: string) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.text(text, margin, y);
+        y += 16;
+        doc.setDrawColor(203, 213, 225);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 14;
+      };
+
+      const addLine = (label: string, value: string) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text(`${label}:`, margin, y);
+
+        doc.setFont("helvetica", "normal");
+        const lineText = value || "-";
+        const lines = doc.splitTextToSize(lineText, maxWidth - 70);
+        doc.text(lines, margin + 70, y);
+        y += Math.max(14, lines.length * 12);
+
+        if (y > 780) {
+          doc.addPage();
+          y = 48;
+        }
+      };
+
+      addTitle("Legajo del Empleado");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Generado: ${new Date().toLocaleString("es-AR")}`, margin, y);
+      doc.setTextColor(0, 0, 0);
+      y += 20;
+
+      addSection("Datos Básicos");
+      addLine("Legajo", agente.legajo);
+      addLine("Apellido y Nombre", `${agente.apellido}, ${agente.nombre}`);
+      addLine("DNI", agente.dni);
+      addLine("Área", agente.area);
+      addLine("Cargo", agente.cargo || "-");
+      addLine("Ingreso", agente.fecha_ingreso ? new Date(agente.fecha_ingreso).toLocaleDateString("es-AR") : "-");
+      addLine("Email", agente.email || "-");
+      addLine("Teléfono", agente.telefono || "-");
+
+      y += 8;
+      addSection("Formación");
+      if (formacion.length === 0) {
+        addLine("Formación", "Sin registros de formación");
+      } else {
+        formacion.forEach((item, index) => {
+          addLine(
+            `${index + 1}. ${item.tipo}`,
+            `${item.nombre}${item.institucion ? ` - ${item.institucion}` : ""}${item.fecha ? ` (${new Date(item.fecha).toLocaleDateString("es-AR")})` : ""}${item.estado ? ` · ${item.estado}` : ""}`
+          );
+        });
+      }
+
+      y += 8;
+      addSection("Adjuntos de Legajo");
+      addLine("DNI", adjuntos.dni?.fileName || "No adjunto");
+      addLine("Título", adjuntos.titulo?.fileName || "No adjunto");
+      addLine("Currículum", adjuntos.curriculum?.fileName || "No adjunto");
+      addLine("Licencia", adjuntos.licencia?.fileName || "No adjunto");
+
+      const fileName = `legajo_${agente.legajo}_${agente.apellido}_${agente.nombre}.pdf`;
+      doc.save(fileName);
+      showSuccess("Legajo generado", `Se descargó ${fileName}`);
+    } catch (error) {
+      console.error("Error al generar PDF de legajo:", error);
+      showError("Error al generar legajo", formatError(error));
+    }
   };
 
   return (
@@ -732,7 +946,7 @@ export default function Personal() {
             <DialogDescription>Información completa del agente seleccionado</DialogDescription>
           </DialogHeader>
           {selectedAgente && (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-[72vh]">
               {/* Tabs */}
               <div className="border-b border-slate-200 px-6">
                 <div className="flex gap-2 overflow-x-auto">
@@ -796,14 +1010,37 @@ export default function Personal() {
                     <Shirt className="h-4 w-4" />
                     Tallas
                   </button>
+                  <button
+                    onClick={() => setDetailActiveTab("formacion")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                      detailActiveTab === "formacion"
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
+                    )}
+                  >
+                    <GraduationCap className="h-4 w-4" />
+                    Formación
+                  </button>
                 </div>
               </div>
 
               {/* Tab Content */}
-              <div className="overflow-y-auto px-6 py-6">
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
                 {/* Tab: Legajo */}
                 {detailActiveTab === "legajo" && (
-                  <div className="space-y-4">
+                  <div className="space-y-4 max-h-[52vh] overflow-y-auto pr-1">
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => exportarLegajo(selectedAgente)}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Exportar legajo
+                      </Button>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <p className="text-sm font-medium text-slate-500">Legajo</p>
@@ -827,6 +1064,64 @@ export default function Personal() {
                           <p className="text-base text-slate-900">{selectedAgente.cargo}</p>
                         </div>
                       )}
+                    </div>
+
+                    <div className="border-t pt-4 space-y-3">
+                      <h4 className="font-semibold text-slate-900">Adjuntos del Legajo</h4>
+                      {([
+                        { tipo: "dni" as TipoAdjuntoLegajo, label: "DNI" },
+                        { tipo: "titulo" as TipoAdjuntoLegajo, label: "Título" },
+                        { tipo: "curriculum" as TipoAdjuntoLegajo, label: "Currículum" },
+                        { tipo: "licencia" as TipoAdjuntoLegajo, label: "Licencia" },
+                      ]).map((doc) => {
+                        const adjunto = getAdjuntosAgente(selectedAgente.id, selectedAgente.adjuntos_legajo)[doc.tipo];
+
+                        return (
+                          <div key={doc.tipo} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+                            <div>
+                              {adjunto ? (
+                                <button
+                                  type="button"
+                                  onClick={() => downloadAdjunto(adjunto)}
+                                  className="text-blue-600 hover:text-blue-700 font-semibold underline"
+                                >
+                                  {doc.label}
+                                </button>
+                              ) : (
+                                <span className="font-semibold text-slate-500">{doc.label}</span>
+                              )}
+                              <p className="text-xs text-slate-500">
+                                {adjunto
+                                  ? `${adjunto.fileName} · ${new Date(adjunto.uploadedAt).toLocaleDateString("es-AR")}`
+                                  : "Sin archivo adjunto"}
+                              </p>
+                            </div>
+
+                            <>
+                              <input
+                                type="file"
+                                className="hidden"
+                                ref={(el) => {
+                                  fileInputRefs.current[doc.tipo] = el;
+                                }}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] || null;
+                                  handleUploadAdjunto(doc.tipo, file);
+                                  e.currentTarget.value = "";
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => fileInputRefs.current[doc.tipo]?.click()}
+                              >
+                                {adjunto ? "Reemplazar" : "Adjuntar"}
+                              </Button>
+                            </>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1012,6 +1307,40 @@ export default function Personal() {
                   </div>
                 )}
 
+                {/* Tab: Formación */}
+                {detailActiveTab === "formacion" && (
+                  <div className="space-y-4">
+                    {!selectedAgente.formacion || selectedAgente.formacion.length === 0 ? (
+                      <p className="text-sm text-slate-500">Sin registros de formación cargados.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {selectedAgente.formacion.map((item) => (
+                          <div key={item.id} className="p-4 rounded-lg border border-slate-200 bg-slate-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <Badge variant="outline">{item.tipo}</Badge>
+                              {item.estado && (
+                                <Badge className={cn(item.estado === "Completo" ? "bg-emerald-500" : "bg-amber-500", "text-white")}>
+                                  {item.estado}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="font-semibold text-slate-900">{item.nombre}</p>
+                            {(item.institucion || item.fecha) && (
+                              <p className="text-sm text-slate-600 mt-1">
+                                {item.institucion || "Institución no especificada"}
+                                {item.fecha ? ` · ${new Date(item.fecha).toLocaleDateString("es-AR")}` : ""}
+                              </p>
+                            )}
+                            {item.observaciones && (
+                              <p className="text-sm text-slate-500 mt-2">{item.observaciones}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Footer info */}
                 <div className="border-t pt-4 mt-6">
                   <p className="text-xs text-slate-500">Registrado: {new Date(selectedAgente.created_at).toLocaleString('es-AR')}</p>
@@ -1040,6 +1369,8 @@ export default function Personal() {
         confirmText="Eliminar"
         cancelText="Cancelar"
       />
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
