@@ -20,7 +20,6 @@ import {
   RefreshCw,
   TrendingUp,
   TrendingDown,
-  FolderOpen,
   Clock,
   CheckCircle,
   AlertCircle,
@@ -743,16 +742,17 @@ export default function Dashboard() {
                     <DropdownMenuItem
                       onClick={async () => {
                         try {
-                          await invoke("exportar_excel_pendientes");
-                          alert("Informe exportado exitosamente");
+                          const excelPath = await invoke<string>("exportar_excel_pendientes");
+                          await openPath(excelPath);
+                          showSuccess("Informe generado", "Se abrió el Excel de pendientes.");
                         } catch (error) {
-                          alert("Error al exportar: " + error);
+                          showError("Error al exportar", String(error));
                         }
                       }}
                       className="cursor-pointer py-3 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/20 transition-colors duration-200"
                     >
                       <FileSpreadsheet className="h-4 w-4 mr-3 text-emerald-600 dark:text-emerald-400" />
-                      <span className="font-medium">Exportar Informe Automático</span>
+                      <span className="font-medium">Exportar Informe de Pendientes (.xlsx)</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

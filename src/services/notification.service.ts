@@ -1,18 +1,15 @@
 // Servicio para detectar y gestionar notificaciones de expedientes
 
 import type { 
-  Expediente, 
-  Prioridad, 
-  TipoExpediente, 
-  EstadoExpediente 
-} from "./expediente";
+  Expediente
+} from "@/types/expediente";
 import type { 
   Notification, 
   NotificationType, 
   PendingExpediente,
   NotificationStats,
   NotificationSummary
-} from "./notifications";
+} from "@/types/notifications";
 
 export class ExpedienteNotificationService {
   /**
@@ -58,7 +55,12 @@ export class ExpedienteNotificationService {
     razon: string;
     dias_pendiente?: number;
   }> {
-    const alertas = [];
+    const alertas: Array<{
+      tipo_alerta: NotificationType;
+      urgencia: "baja" | "media" | "alta" | "critica";
+      razon: string;
+      dias_pendiente?: number;
+    }> = [];
 
     // 🔴 CRITICA: Expediente vencido
     if (exp.fecha_vencimiento) {
@@ -140,7 +142,7 @@ export class ExpedienteNotificationService {
       razon: string;
     }
   ): Notification {
-    const titulos = {
+    const titulos: Record<NotificationType, string> = {
       pendiente_contestar: "📋 Expediente Pendiente",
       pago_sin_pagar: "💳 Pago Pendiente",
       expediente_vencido: "⏰ Expediente Vencido",
@@ -160,7 +162,7 @@ export class ExpedienteNotificationService {
       descripcion: `${exp.numero}/${exp.año} - ${exp.asunto} - ${alerta.razon}`,
       urgencia: alerta.urgencia,
       fecha_creacion: new Date().toISOString(),
-      fecha_vencimiento: exp.fecha_vencimiento,
+      fecha_vencimiento: exp.fecha_vencimiento ?? undefined,
       leida: false,
       acciones: [
         {
@@ -196,7 +198,7 @@ export class ExpedienteNotificationService {
       estado: exp.estado,
       tipo: exp.tipo,
       fecha_inicio: exp.fecha_inicio,
-      fecha_vencimiento: exp.fecha_vencimiento,
+      fecha_vencimiento: exp.fecha_vencimiento ?? undefined,
       area_responsable: exp.area_responsable,
       prioridad: exp.prioridad,
       razon_alerta: alerta.razon,
@@ -208,19 +210,6 @@ export class ExpedienteNotificationService {
    * Calcula estadísticas de notificaciones
    */
   private static calcularEstadisticas(notificaciones: Notification[]): NotificationStats {
-    const stats: NotificationStats = {
-      total_notificaciones: notificaciones.length,
-      por_urgencia: {
-        critica: 0,
-        alta: 0,
-        media: 0,
-        baja: 0
-      },
-      por_tipo: {} as any,
-      sin_leer: notificaciones.filter(n => !n.leida).length
-    };
-
-    // Inicializar contadores por tipo
     const tipos: NotificationType[] = [
       "pendiente_contestar",
       "pago_sin_pagar",
@@ -232,10 +221,23 @@ export class ExpedienteNotificationService {
       "expediente_rechazado",
       "expediente_aceptado"
     ];
-    
-    tipos.forEach(tipo => {
-      stats.por_tipo[tipo] = 0;
-    });
+
+    const porTipo = tipos.reduce((acc, tipo) => {
+      acc[tipo] = 0;
+      return acc;
+    }, {} as Record<NotificationType, number>);
+
+    const stats: NotificationStats = {
+      total_notificaciones: notificaciones.length,
+      por_urgencia: {
+        critica: 0,
+        alta: 0,
+        media: 0,
+        baja: 0
+      },
+      por_tipo: porTipo,
+      sin_leer: notificaciones.filter(n => !n.leida).length
+    };
 
     // Contar por urgencia y tipo
     notificaciones.forEach(notif => {

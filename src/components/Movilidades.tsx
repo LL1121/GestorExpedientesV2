@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Truck, Fuel, Package, Plus, Edit, Trash2, TrendingUp, AlertCircle, CheckCircle, ChevronDown, Wrench, FileText, DollarSign } from "lucide-react";
+import { Truck, Fuel, Package, Plus, Edit, Trash2, AlertCircle, ChevronDown, Wrench, FileText, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +30,7 @@ export default function Movilidades() {
   const [isEditVehiculoOpen, setIsEditVehiculoOpen] = useState(false);
   const [isEditTicketOpen, setIsEditTicketOpen] = useState(false);
   const [isEditConsumibleOpen, setIsEditConsumibleOpen] = useState(false);
-  const [isEditHistorialOpen, setIsEditHistorialOpen] = useState(false);
+  const [, setIsEditHistorialOpen] = useState(false);
   const [selectedVehiculo, setSelectedVehiculo] = useState<Vehiculo | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<TicketCombustible | null>(null);
   const [selectedConsumible, setSelectedConsumible] = useState<Consumible | null>(null);
@@ -38,7 +38,7 @@ export default function Movilidades() {
   const [editingVehiculo, setEditingVehiculo] = useState<Vehiculo | null>(null);
   const [editingTicket, setEditingTicket] = useState<TicketCombustible | null>(null);
   const [editingConsumible, setEditingConsumible] = useState<Consumible | null>(null);
-  const [editingHistorial, setEditingHistorial] = useState<HistorialMecanico | null>(null);
+  const [, setEditingHistorial] = useState<HistorialMecanico | null>(null);
   const [gastosVinculados, setGastosVinculados] = useState<Expediente[]>([]);
   const [loadingGastos, setLoadingGastos] = useState(false);
   const [filtroCategoria, setFiltroCategoria] = useState<CategoriaGasto | "Todos">("Todos");
