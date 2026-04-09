@@ -700,7 +700,7 @@ pub struct PDFRenglon {
 }
 
 #[tauri::command]
-pub async fn generar_pdf(data: GenerarPDFOCRequest) -> Result<String, String> {
+pub async fn generar_pdf(data: GenerarPDFOCRequest, output_dir: Option<String>) -> Result<String, String> {
     println!("📄 Generando PDF para OC {}", data.numero_oc);
 
     tauri::async_runtime::spawn_blocking(move || {
@@ -720,9 +720,7 @@ pub async fn generar_pdf(data: GenerarPDFOCRequest) -> Result<String, String> {
         println!("⏱️ plantilla verificada: {} ms", t0.elapsed().as_millis());
 
         // Construir rutas de salida
-        let home_dir = dirs::home_dir()
-            .ok_or("No se pudo obtener el directorio home")?;
-        let docs_dir = home_dir.join("Documents");
+        let docs_dir = resolve_output_dir(output_dir)?;
         std::fs::create_dir_all(&docs_dir)
             .map_err(|e| format!("Error al crear directorio: {}", e))?;
 
@@ -863,7 +861,7 @@ pub async fn generar_pdf(data: GenerarPDFOCRequest) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn generar_excel(data: GenerarPDFOCRequest) -> Result<String, String> {
+pub async fn generar_excel(data: GenerarPDFOCRequest, output_dir: Option<String>) -> Result<String, String> {
     println!("📄 Generando Excel para OC {}", data.numero_oc);
     
     // Obtener ruta de la plantilla Excel
@@ -880,9 +878,7 @@ pub async fn generar_excel(data: GenerarPDFOCRequest) -> Result<String, String> 
     }
     
     // Construir rutas de salida
-    let home_dir = dirs::home_dir()
-        .ok_or("No se pudo obtener el directorio home")?;
-    let docs_dir = home_dir.join("Documents");
+    let docs_dir = resolve_output_dir(output_dir)?;
     std::fs::create_dir_all(&docs_dir)
         .map_err(|e| format!("Error al crear directorio: {}", e))?;
     
@@ -979,6 +975,18 @@ fn formatear_fecha_español(fecha_iso: &str) -> Result<String, String> {
         .ok_or("Mes inválido")?;
     
     Ok(format!("Mendoza, {} de {} de {}", fecha.day(), mes, fecha.year()))
+}
+
+fn resolve_output_dir(output_dir: Option<String>) -> Result<std::path::PathBuf, String> {
+    if let Some(path) = output_dir {
+        let trimmed = path.trim();
+        if !trimmed.is_empty() {
+            return Ok(std::path::PathBuf::from(trimmed));
+        }
+    }
+
+    let home_dir = dirs::home_dir().ok_or("No se pudo obtener el directorio home")?;
+    Ok(home_dir.join("Documents"))
 }
 
 /// Formatear expediente completo: numero-?-año (nro_gde o nro_infogov)

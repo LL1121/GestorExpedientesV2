@@ -341,7 +341,7 @@ export default function Movilidades() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-700">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 py-6">
@@ -376,7 +376,7 @@ export default function Movilidades() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto px-8 py-6">
+        <div className="flex-1 overflow-auto px-8 py-6 bg-slate-50 dark:bg-slate-900">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-slate-500">Cargando datos...</p>
@@ -397,20 +397,20 @@ export default function Movilidades() {
                     </Button>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Patente</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Marca/Modelo</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tipo</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Año</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Kilometraje</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Estado</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
+                        <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/60">
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Patente</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Marca/Modelo</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Tipo</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Año</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Kilometraje</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Estado</th>
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/70">
                         {vehiculos.map((vehiculo) => (
                           <tr 
                             key={vehiculo.id} 
@@ -427,10 +427,10 @@ export default function Movilidades() {
                               <span className="text-sm text-slate-900 dark:text-white">{vehiculo.tipo}</span>
                             </td>
                             <td className="py-4 px-4">
-                              <span className="text-sm text-slate-600">{vehiculo.año}</span>
+                              <span className="text-sm text-slate-600 dark:text-slate-300">{vehiculo.año}</span>
                             </td>
                             <td className="py-4 px-4">
-                              <span className="text-sm text-slate-600">{vehiculo.kilometraje.toLocaleString()} km</span>
+                              <span className="text-sm text-slate-600 dark:text-slate-300">{vehiculo.kilometraje.toLocaleString()} km</span>
                             </td>
                             <td className="py-4 px-4">
                               <Badge className={vehiculo.estado === "Activo" ? "bg-emerald-500" : "bg-amber-500"}>
@@ -502,19 +502,19 @@ export default function Movilidades() {
                     </DropdownMenu>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Fecha</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Vehículo</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Litros</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Precio Total</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Kilometraje</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
+                        <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/60">
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Fecha</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Vehículo</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Litros</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Precio Total</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Kilometraje</th>
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/70">
                         {tickets.map((ticket) => (
                           <tr 
                             key={ticket.id} 
@@ -528,13 +528,13 @@ export default function Movilidades() {
                               <span className="text-sm font-mono font-semibold text-slate-900 dark:text-white">{ticket.vehiculo_patente}</span>
                             </td>
                             <td className="py-4 px-4">
-                              <span className="text-sm text-slate-600">{ticket.litros} L</span>
+                              <span className="text-sm text-slate-600 dark:text-slate-300">{ticket.litros} L</span>
                             </td>
                             <td className="py-4 px-4">
                               <span className="text-sm text-slate-900 dark:text-white">${ticket.precio_total.toLocaleString()}</span>
                             </td>
                             <td className="py-4 px-4">
-                              <span className="text-sm text-slate-600">{ticket.kilometraje_actual.toLocaleString()} km</span>
+                              <span className="text-sm text-slate-600 dark:text-slate-300">{ticket.kilometraje_actual.toLocaleString()} km</span>
                             </td>
                             <td className="py-4 px-4 text-right">
                               <div className="flex justify-end gap-2">
@@ -576,19 +576,19 @@ export default function Movilidades() {
                     </Button>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nombre</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Categoría</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Cantidad</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Stock Mínimo</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Estado</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
+                        <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/60">
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Nombre</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Categoría</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Cantidad</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Stock Mínimo</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Estado</th>
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/70">
                         {consumibles.map((consumible) => (
                           <tr 
                             key={consumible.id} 
@@ -605,7 +605,7 @@ export default function Movilidades() {
                               <span className="text-sm text-slate-900 dark:text-white">{consumible.cantidad} {consumible.unidad}</span>
                             </td>
                             <td className="py-4 px-4">
-                              <span className="text-sm text-slate-600">{consumible.stock_minimo}</span>
+                              <span className="text-sm text-slate-600 dark:text-slate-300">{consumible.stock_minimo}</span>
                             </td>
                             <td className="py-4 px-4">
                               {consumible.cantidad <= consumible.stock_minimo ? (
@@ -657,19 +657,19 @@ export default function Movilidades() {
                     </Button>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Fecha</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Vehículo</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tipo de Trabajo</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Descripción</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Costo</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
+                        <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/60">
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Fecha</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Vehículo</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Tipo de Trabajo</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Descripción</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Costo</th>
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/70">
                         {historial.map((item) => (
                           <tr 
                             key={item.id} 
@@ -686,7 +686,7 @@ export default function Movilidades() {
                               <span className="text-sm text-slate-900 dark:text-white">{item.tipo_trabajo}</span>
                             </td>
                             <td className="py-4 px-4">
-                              <span className="text-sm text-slate-600 max-w-xs truncate block">{item.descripcion}</span>
+                              <span className="text-sm text-slate-600 dark:text-slate-300 max-w-xs truncate block">{item.descripcion}</span>
                             </td>
                             <td className="py-4 px-4">
                               <span className="text-sm text-slate-900 dark:text-white">
@@ -1415,14 +1415,14 @@ export default function Movilidades() {
         setSelectedVehiculo(null);
         setFiltroCategoria("Todos");
       }}>
-        <DialogContent className="max-w-2xl bg-white dark:bg-slate-800">
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-800">
           <DialogHeader>
             <DialogTitle>Detalles del Vehículo</DialogTitle>
             <DialogDescription>Información completa del vehículo seleccionado</DialogDescription>
           </DialogHeader>
           {selectedVehiculo && (
             <div className="grid gap-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-slate-500">Patente</p>
                   <p className="text-lg font-mono font-bold text-slate-900 dark:text-white">{selectedVehiculo.patente}</p>
@@ -1487,7 +1487,7 @@ export default function Movilidades() {
                 ) : (
                   <>
                     {/* Estadísticas */}
-                    <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
                       <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 p-3 rounded-lg">
                         <div className="flex items-center gap-2 mb-1">
                           <Fuel className="w-4 h-4 text-blue-600 dark:text-blue-300" />

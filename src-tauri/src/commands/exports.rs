@@ -26,6 +26,7 @@ struct ColumnInfo {
 #[tauri::command]
 pub async fn exportar_excel_pendientes(
     pools: State<'_, DatabasePool>,
+    output_dir: Option<String>,
 ) -> Result<String, String> {
     let pool = pools.get_sqlite();
     let columns = get_expedientes_columns(pool).await?;
@@ -74,14 +75,12 @@ pub async fn exportar_excel_pendientes(
     }
 
     let template_path = resolve_template_path()?;
-    let docs_dir = dirs::home_dir()
-        .ok_or("No se pudo obtener el directorio home")?
-        .join("Documents");
-    std::fs::create_dir_all(&docs_dir)
+    let output_base_dir = resolve_output_dir(output_dir)?;
+    std::fs::create_dir_all(&output_base_dir)
         .map_err(|e| format!("Error al crear directorio de salida: {}", e))?;
 
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-    let output_path = docs_dir.join(format!("Informe_Pendientes_{}.xlsx", timestamp));
+    let output_path = output_base_dir.join(format!("Informe_Pendientes_{}.xlsx", timestamp));
 
     std::fs::copy(&template_path, &output_path)
         .map_err(|e| format!("Error al copiar plantilla Excel: {}", e))?;
@@ -254,4 +253,23 @@ fn column_to_letter(col: u32) -> String {
     }
 
     result
+}
+
+fn resolve_output_dir(output_dir: Option<String>) -> Result<std::path::PathBuf, String> {
+    if let Some(path) = output_dir {
+        let trimmed = path.trim();
+        if !trimmed.is_empty() {
+            let custom_path = std::path::PathBuf::from(trimmed);
+            return Ok(custom_path);
+        }
+    }
+
+    let home_dir = dirs::home_dir().ok_or("No se pudo obtener el directorio home")?;
+    Ok(home_dir.join("Documents"))
+}
+
+#[tauri::command]
+pub fn seleccionar_directorio_guardado() -> Result<Option<String>, String> {
+    let selected = rfd::FileDialog::new().pick_folder();
+    Ok(selected.map(|path| path.to_string_lossy().to_string()))
 }

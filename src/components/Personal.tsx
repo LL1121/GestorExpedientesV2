@@ -464,7 +464,7 @@ export default function Personal() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-700">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 py-6 shrink-0">
@@ -473,7 +473,7 @@ export default function Personal() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto px-8 py-6">
+        <div className="flex-1 overflow-auto px-8 py-6 bg-slate-50 dark:bg-slate-900">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-slate-500">Cargando agentes...</p>
@@ -496,16 +496,16 @@ export default function Personal() {
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Licencias</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Legajo</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Apellido y Nombre</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">DNI</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Área</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
+                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/60">
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Licencias</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Legajo</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Apellido y Nombre</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">DNI</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Área</th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/70">
                     {agentes.map((agente) => (
                       <tr 
                         key={agente.id} 
@@ -522,10 +522,10 @@ export default function Personal() {
                           <span className="text-sm font-medium text-slate-900 dark:text-white">{agente.apellido}, {agente.nombre}</span>
                         </td>
                         <td className="py-4 px-4">
-                          <span className="text-sm text-slate-600">{agente.dni}</span>
+                          <span className="text-sm text-slate-600 dark:text-slate-300">{agente.dni}</span>
                         </td>
                         <td className="py-4 px-4">
-                          <span className="text-sm text-slate-600">{agente.area}</span>
+                          <span className="text-sm text-slate-600 dark:text-slate-300">{agente.area}</span>
                         </td>
                         <td className="py-4 px-4 text-right">
                           <div className="flex justify-end gap-2">

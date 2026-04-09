@@ -6,7 +6,6 @@ import {
   Search,
   LayoutDashboard,
   FileText,
-  BarChart3,
   Settings,
   MoreVertical,
   Menu,
@@ -18,10 +17,6 @@ import {
   Download,
   Plus,
   RefreshCw,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  CheckCircle,
   AlertCircle,
   Bell,
   FileSpreadsheet,
@@ -76,7 +71,7 @@ import { GastoSuggestionModal } from "@/components/GastoSuggestionModal";
 import { useNotification } from "@/hooks/useNotification";
 
 type FilterType = "all" | EstadoExpediente | "InfoGov" | "Gde" | "Interno" | "Otro";
-type ActiveView = "dashboard" | "analiticas" | "configuracion" | "movilidades" | "personal" | "formulario-oc" | "preview-oc" | "notificaciones";
+type ActiveView = "dashboard" | "configuracion" | "movilidades" | "personal" | "formulario-oc" | "preview-oc" | "notificaciones";
 
 export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -107,6 +102,7 @@ export default function Dashboard() {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
   });
+  const [outputDirectory, setOutputDirectory] = useState(() => localStorage.getItem('outputDirectory') || "");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [contextMenu, setContextMenu] = useState<{
@@ -205,6 +201,12 @@ export default function Dashboard() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('outputDirectory', outputDirectory);
+  }, [outputDirectory]);
+
+  const selectedOutputDir = outputDirectory.trim() || undefined;
 
   // Capturar errores globales
   useEffect(() => {
@@ -626,7 +628,6 @@ export default function Dashboard() {
             { icon: Truck, label: "Movilidades", view: "movilidades" as ActiveView },
             { icon: Users, label: "Personal", view: "personal" as ActiveView },
             { icon: null, label: "Notificaciones", view: "notificaciones" as ActiveView, customIcon: true },
-            { icon: BarChart3, label: "Analíticas", view: "analiticas" as ActiveView },
             { icon: Settings, label: "Configuración", view: "configuracion" as ActiveView },
           ].map((item, idx) => (
             <button
@@ -742,7 +743,9 @@ export default function Dashboard() {
                     <DropdownMenuItem
                       onClick={async () => {
                         try {
-                          const excelPath = await invoke<string>("exportar_excel_pendientes");
+                          const excelPath = await invoke<string>("exportar_excel_pendientes", {
+                            outputDir: selectedOutputDir,
+                          });
                           await openPath(excelPath);
                           showSuccess("Informe generado", "Se abrió el Excel de pendientes.");
                         } catch (error) {
@@ -785,38 +788,38 @@ export default function Dashboard() {
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
                 <table className="w-full">
                   <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 dark:bg-slate-700">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/60">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       ID Expediente
                     </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       Archivo
                     </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       Tema
                     </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       Oficina
                     </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       Asunto
                     </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       Tipo
                     </th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       Acciones
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/70">
                   {filteredRecords.map((record) => (
                     <tr
                       key={record.id}
-                      className={cn("transition-colors cursor-pointer", hoveredRow === record.id ? "bg-slate-50" : "")}
+                      className={cn("transition-colors cursor-pointer", hoveredRow === record.id ? "bg-slate-50 dark:bg-slate-700/50" : "")}
                       onMouseEnter={() => setHoveredRow(record.id)}
                       onMouseLeave={() => setHoveredRow(null)}
                       onClick={() => setSelectedRecord(record)}
@@ -880,7 +883,7 @@ export default function Dashboard() {
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
                           <div className={cn("h-2.5 w-2.5 rounded-full", getStatusColor(record.estado))} />
-                          <span className="text-xs font-medium text-slate-600">{getStatusLabel(record.estado)}</span>
+                          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{getStatusLabel(record.estado)}</span>
                         </div>
                       </td>
                       <td className="py-4 px-4">
@@ -889,16 +892,16 @@ export default function Dashboard() {
                         </span>
                       </td>
                       <td className="py-4 px-4">
-                        <span className="text-sm text-slate-600 truncate max-w-xs">{record.archivo || "-"}</span>
+                        <span className="text-sm text-slate-600 dark:text-slate-300 truncate max-w-xs">{record.archivo || "-"}</span>
                       </td>
                       <td className="py-4 px-4">
-                        <span className="text-sm text-slate-600 truncate max-w-xs">{record.tema || "-"}</span>
+                        <span className="text-sm text-slate-600 dark:text-slate-300 truncate max-w-xs">{record.tema || "-"}</span>
                       </td>
                       <td className="py-4 px-4">
-                        <span className="text-sm text-slate-600 truncate max-w-xs">{record.oficina || "-"}</span>
+                        <span className="text-sm text-slate-600 dark:text-slate-300 truncate max-w-xs">{record.oficina || "-"}</span>
                       </td>
                       <td className="py-4 px-4">
-                        <span className="text-sm font-medium text-slate-900 line-clamp-1">{record.asunto}</span>
+                        <span className="text-sm font-medium text-slate-900 dark:text-white line-clamp-1">{record.asunto}</span>
                       </td>
                       <td className="py-4 px-4">
                         <Badge variant={record.tipo === "InfoGov" || record.tipo === "Gde" ? "default" : "secondary"} className="text-xs">
@@ -980,156 +983,6 @@ export default function Dashboard() {
             setActiveView("dashboard");
           }} onNotificationCountChange={(count) => setNotificationCount(count)} />}
 
-          {/* Vista: Analíticas */}
-          {activeView === "analiticas" && (
-            <div className="space-y-6">
-              {/* Header */}
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Analíticas y Reportes</h2>
-                <p className="text-sm text-slate-600 mt-1">Métricas y estadísticas del sistema</p>
-              </div>
-
-              {/* Main Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium opacity-90">Total Expedientes</p>
-                    <FileText className="h-5 w-5 opacity-80" />
-                  </div>
-                  <p className="text-3xl font-bold">{expedientes.length}</p>
-                  <p className="text-xs opacity-75 mt-2">Todos los registros</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg p-6 text-white">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium opacity-90">Finalizados</p>
-                    <CheckCircle className="h-5 w-5 opacity-80" />
-                  </div>
-                  <p className="text-3xl font-bold">{expedientes.filter(e => e.estado === "Finalizado").length}</p>
-                  <p className="text-xs opacity-75 mt-2">
-                    {expedientes.length > 0 ? Math.round((expedientes.filter(e => e.estado === "Finalizado").length / expedientes.length) * 100) : 0}% del total
-                  </p>
-                </div>
-
-                <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg p-6 text-white">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium opacity-90">En Proceso</p>
-                    <Clock className="h-5 w-5 opacity-80" />
-                  </div>
-                  <p className="text-3xl font-bold">{expedientes.filter(e => e.estado === "EnProceso").length}</p>
-                  <p className="text-xs opacity-75 mt-2">Activos actualmente</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-6 text-white">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium opacity-90">Observados</p>
-                    <AlertCircle className="h-5 w-5 opacity-80" />
-                  </div>
-                  <p className="text-3xl font-bold">{expedientes.filter(e => e.estado === "Observado").length}</p>
-                  <p className="text-xs opacity-75 mt-2">Requieren atención</p>
-                </div>
-              </div>
-
-              {/* Charts Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Estado Distribution */}
-                <div className="bg-white rounded-lg border border-slate-200 p-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Distribución por Estado</h3>
-                  <div className="space-y-3">
-                    {[
-                      { estado: "Iniciado", color: "bg-blue-500", count: expedientes.filter(e => e.estado === "Iniciado").length },
-                      { estado: "En Proceso", color: "bg-amber-500", count: expedientes.filter(e => e.estado === "EnProceso").length },
-                      { estado: "En Revisión", color: "bg-purple-500", count: expedientes.filter(e => e.estado === "EnRevision").length },
-                      { estado: "Observado", color: "bg-red-500", count: expedientes.filter(e => e.estado === "Observado").length },
-                      { estado: "Finalizado", color: "bg-emerald-500", count: expedientes.filter(e => e.estado === "Finalizado").length },
-                    ].map((item) => (
-                      <div key={item.estado} className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-slate-700">{item.estado}</span>
-                            <span className="text-sm font-semibold text-slate-900 dark:text-white">{item.count}</span>
-                          </div>
-                          <div className="w-full bg-slate-100 rounded-full h-2">
-                            <div
-                              className={`${item.color} h-2 rounded-full transition-all`}
-                              style={{ width: `${expedientes.length > 0 ? (item.count / expedientes.length) * 100 : 0}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tipo Distribution */}
-                <div className="bg-white rounded-lg border border-slate-200 p-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Distribución por Tipo</h3>
-                  <div className="space-y-4">
-                    {[
-                      { tipo: "InfoGov", label: "Info Gubernamental", count: expedientes.filter(e => e.tipo === "InfoGov").length },
-                      { tipo: "Gde", label: "GDE", count: expedientes.filter(e => e.tipo === "Gde").length },
-                      { tipo: "Interno", label: "Interno", count: expedientes.filter(e => e.tipo === "Interno").length },
-                      { tipo: "Otro", label: "Otro", count: expedientes.filter(e => e.tipo === "Otro").length },
-                    ].map((item) => (
-                      <div key={item.tipo} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                        <span className="text-sm font-medium text-slate-700">{item.label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-slate-900 dark:text-white">{item.count}</span>
-                          <span className="text-xs text-slate-500">
-                            ({expedientes.length > 0 ? Math.round((item.count / expedientes.length) * 100) : 0}%)
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Performance by Area */}
-              <div className="bg-white rounded-lg border border-slate-200 p-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Rendimiento por Área</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Área</th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Total</th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">En Proceso</th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Finalizados</th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Eficiencia</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {Array.from(new Set(expedientes.map(e => e.area_responsable))).map((area) => {
-                        const areaExp = expedientes.filter(e => e.area_responsable === area);
-                        const finalizados = areaExp.filter(e => e.estado === "Finalizado").length;
-                        const eficiencia = areaExp.length > 0 ? Math.round((finalizados / areaExp.length) * 100) : 0;
-                        return (
-                          <tr key={area} className="hover:bg-slate-50 dark:bg-slate-700">
-                            <td className="py-3 px-4 text-sm font-medium text-slate-900 dark:text-white">{area}</td>
-                            <td className="py-3 px-4 text-sm text-center text-slate-600">{areaExp.length}</td>
-                            <td className="py-3 px-4 text-sm text-center text-slate-600">
-                              {areaExp.filter(e => e.estado === "EnProceso").length}
-                            </td>
-                            <td className="py-3 px-4 text-sm text-center text-slate-600">{finalizados}</td>
-                            <td className="py-3 px-4 text-center">
-                              <div className="inline-flex items-center gap-1">
-                                <span className={`text-sm font-semibold ${eficiencia >= 70 ? 'text-emerald-600' : eficiencia >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
-                                  {eficiencia}%
-                                </span>
-                                {eficiencia >= 70 ? <TrendingUp className="h-4 w-4 text-emerald-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Vista: Formulario OC */}
           {activeView === "formulario-oc" && ocDraft && (
             <FormularioOC
@@ -1196,7 +1049,10 @@ export default function Dashboard() {
                     es_iva_inscripto: ocDraft.es_iva_inscripto,
                   };
 
-                  const excelPath = await invoke<string>('generar_excel', { data: excelRequest });
+                  const excelPath = await invoke<string>('generar_excel', {
+                    data: excelRequest,
+                    outputDir: selectedOutputDir,
+                  });
                   await openPath(excelPath);
                   setPdfGenerationStatus('success');
 
@@ -1263,7 +1119,10 @@ export default function Dashboard() {
                     await openPath(lastPdfPathRef.current);
                     setPdfGenerationStatus('success');
                   } else {
-                    const pdfPath = await invoke<string>('generar_pdf', { data: pdfRequest });
+                    const pdfPath = await invoke<string>('generar_pdf', {
+                      data: pdfRequest,
+                      outputDir: selectedOutputDir,
+                    });
                     lastPdfRequestRef.current = requestKey;
                     lastPdfPathRef.current = pdfPath;
                     await openPath(pdfPath);
@@ -1300,11 +1159,11 @@ export default function Dashboard() {
               {/* Header */}
               <div>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Configuración</h2>
-                <p className="text-sm text-slate-600 mt-1">Preferencias y ajustes del sistema</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Preferencias y ajustes del sistema</p>
               </div>
 
               {/* Tabs */}
-              <div className="border-b border-slate-200">
+              <div className="border-b border-slate-200 dark:border-slate-700">
                 <div className="flex gap-4">
                   {[
                     { id: "general", label: "General", icon: Settings },
@@ -1317,8 +1176,8 @@ export default function Dashboard() {
                       className={cn(
                         "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
                         configTab === tab.id
-                          ? "border-blue-500 text-blue-600"
-                          : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
+                          ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                          : "border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-600"
                       )}
                     >
                       <tab.icon className="h-4 w-4" />
@@ -1329,17 +1188,17 @@ export default function Dashboard() {
               </div>
 
               {/* Tab Content */}
-              <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
                 {/* General Tab */}
                 {configTab === "general" && (
                   <div className="space-y-6">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Apariencia</h3>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Apariencia</h3>
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
                           <div>
                             <p className="font-medium text-slate-900 dark:text-white">Modo Oscuro</p>
-                            <p className="text-sm text-slate-600">Cambiar entre tema claro y oscuro</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-300">Cambiar entre tema claro y oscuro</p>
                           </div>
                           <button
                             onClick={() => setDarkMode(!darkMode)}
@@ -1360,47 +1219,74 @@ export default function Dashboard() {
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Idioma y Región</h3>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Archivos exportados</h3>
                       <div className="space-y-3">
-                        <div>
-                          <Label>Idioma</Label>
-                          <Select defaultValue="es">
-                            <SelectTrigger className="mt-2">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white dark:bg-slate-800">
-                              <SelectItem value="es" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">Español</SelectItem>
-                              <SelectItem value="en" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">English</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <Label className="text-slate-700 dark:text-slate-300">Carpeta de guardado</Label>
+                        <Input
+                          readOnly
+                          value={outputDirectory || "(por defecto) Documentos"}
+                          className="bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                const selected = await invoke<string | null>("seleccionar_directorio_guardado");
+                                if (selected) {
+                                  setOutputDirectory(selected);
+                                  showSuccess("Carpeta actualizada", selected);
+                                }
+                              } catch (err) {
+                                showError("No se pudo seleccionar carpeta", formatError(err));
+                              }
+                            }}
+                          >
+                            Elegir carpeta
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setOutputDirectory("");
+                              showInfo("Carpeta por defecto", "Se usará Documentos");
+                            }}
+                          >
+                            Usar Documentos
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={async () => {
+                              if (!outputDirectory) {
+                                showInfo("Ruta por defecto", "No hay carpeta personalizada guardada");
+                                return;
+                              }
+                              await openPath(outputDirectory);
+                            }}
+                          >
+                            Abrir carpeta
+                          </Button>
                         </div>
-                        <div>
-                          <Label>Formato de Fecha</Label>
-                          <Select defaultValue="dd/mm/yyyy">
-                            <SelectTrigger className="mt-2">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white dark:bg-slate-800">
-                              <SelectItem value="dd/mm/yyyy" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">DD/MM/YYYY</SelectItem>
-                              <SelectItem value="mm/dd/yyyy" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">MM/DD/YYYY</SelectItem>
-                              <SelectItem value="yyyy-mm-dd" className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">YYYY-MM-DD</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Esta ruta se aplica a exportaciones de informe pendientes, OC en PDF y OC en Excel.
+                        </p>
                       </div>
                     </div>
+
                   </div>
                 )}
 
                 {configTab === "notifications" && (
                   <div className="space-y-6">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Preferencias de Notificaciones</h3>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Preferencias de Notificaciones</h3>
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
                           <div>
                             <p className="font-medium text-slate-900 dark:text-white">Sonido de notificaciones</p>
-                            <p className="text-sm text-slate-600">Reproducir sonido al recibir eventos importantes</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-300">Reproducir sonido al recibir eventos importantes</p>
                           </div>
                           <button
                             type="button"
@@ -1427,10 +1313,10 @@ export default function Dashboard() {
                           </button>
                         </div>
 
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
                           <div>
                             <p className="font-medium text-slate-900 dark:text-white">Popup nativo de la app</p>
-                            <p className="text-sm text-slate-600">Mostrar ventana popup propia del programa (no depende de Windows)</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-300">Mostrar ventana popup propia del programa (no depende de Windows)</p>
                           </div>
                           <button
                             type="button"
@@ -1457,15 +1343,15 @@ export default function Dashboard() {
                           </button>
                         </div>
 
-                        <div className="border-t border-slate-200 pt-3">
-                          <p className="text-xs text-slate-500 px-1">Alertas funcionales actuales: procesamiento por Alt+I, errores de captura y nuevas alertas críticas.</p>
+                        <div className="border-t border-slate-200 dark:border-slate-600 pt-3">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 px-1">Alertas funcionales actuales: procesamiento por Alt+I, errores de captura y nuevas alertas críticas.</p>
                         </div>
 
-                        <div className="p-4 bg-blue-50/70 border border-blue-100 rounded-lg">
+                        <div className="p-4 bg-blue-50/70 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg">
                           <div className="flex items-center justify-between gap-4">
                             <div>
                               <p className="font-medium text-slate-900 dark:text-white">Prueba rápida</p>
-                              <p className="text-sm text-slate-600">Envía una notificación de prueba con tu configuración actual.</p>
+                              <p className="text-sm text-slate-600 dark:text-slate-300">Envía una notificación de prueba con tu configuración actual.</p>
                             </div>
                             <Button
                               type="button"
@@ -1487,10 +1373,10 @@ export default function Dashboard() {
                           { label: "Expedientes observados", description: "Avisar cuando un expediente sea marcado como observado" },
                           { label: "Expedientes por vencer", description: "Recordar expedientes próximos a su fecha de vencimiento" },
                         ].map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                          <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
                             <div>
                               <p className="font-medium text-slate-900 dark:text-white">{item.label}</p>
-                              <p className="text-sm text-slate-600">{item.description}</p>
+                              <p className="text-sm text-slate-600 dark:text-slate-300">{item.description}</p>
                             </div>
                             <button type="button" className="relative inline-flex h-6 w-11 items-center rounded-full bg-slate-300" disabled>
                               <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-1" />
@@ -1513,34 +1399,34 @@ export default function Dashboard() {
                       <div className="w-16 h-16 bg-blue-500 rounded-xl flex items-center justify-center mx-auto mb-4">
                         <FileText className="h-8 w-8 text-white" />
                       </div>
-                      <h3 className="text-2xl font-bold text-slate-900 mb-2">Gestor de Irrigación</h3>
-                      <p className="text-slate-600 mb-4">Sistema de Gestión de Expedientes</p>
+                      <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Gestor de Irrigación</h3>
+                      <p className="text-slate-600 dark:text-slate-300 mb-4">Sistema de Gestión de Expedientes</p>
                       <Badge variant="secondary">Versión 0.1.0</Badge>
                     </div>
 
-                    <div className="border-t border-slate-200 pt-6 space-y-4">
+                    <div className="border-t border-slate-200 dark:border-slate-700 pt-6 space-y-4">
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <p className="text-slate-600">Frontend</p>
+                          <p className="text-slate-600 dark:text-slate-400">Frontend</p>
                           <p className="font-medium text-slate-900 dark:text-white">React 19.1 + TypeScript</p>
                         </div>
                         <div>
-                          <p className="text-slate-600">Backend</p>
+                          <p className="text-slate-600 dark:text-slate-400">Backend</p>
                           <p className="font-medium text-slate-900 dark:text-white">Rust + Tauri 2.x</p>
                         </div>
                         <div>
-                          <p className="text-slate-600">Base de Datos</p>
+                          <p className="text-slate-600 dark:text-slate-400">Base de Datos</p>
                           <p className="font-medium text-slate-900 dark:text-white">SQLite + PostgreSQL</p>
                         </div>
                         <div>
-                          <p className="text-slate-600">Framework UI</p>
+                          <p className="text-slate-600 dark:text-slate-400">Framework UI</p>
                           <p className="font-medium text-slate-900 dark:text-white">Tailwind CSS + shadcn/ui</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="border-t border-slate-200 pt-6">
-                      <p className="text-xs text-slate-500 text-center">
+                    <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
                         © 2026 Jefatura de Zona de Riego. Todos los derechos reservados.
                       </p>
                     </div>

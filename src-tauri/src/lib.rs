@@ -126,6 +126,7 @@ pub fn run() {
                     commands::exportar_excel_todos,
                     commands::exportar_excel_movilidades,
                     commands::exportar_excel_personal,
+                    commands::seleccionar_directorio_guardado,
                 ])
                 .setup(move |app| {
                     let app_handle = app.handle();
